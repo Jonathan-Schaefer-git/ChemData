@@ -6,11 +6,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="Compound-labled-all-sample.json" />
+    <Content Include="Compound-labled-all-list.json" />
     <None Include="Pubchem\Data-Filtering.fsx" />
     <None Include="Pubchem\Testing.fsx" />
     <Compile Include="Pubchem\Pubchem.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+
+  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />

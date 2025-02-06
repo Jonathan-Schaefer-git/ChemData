@@ -1,4 +1,3 @@
-
 #r "nuget:FSharp.Data"
 #r "nuget:FParsec"
 
@@ -69,13 +68,13 @@ let parseInput (str:string) : DensityResult option =
 
 
     let tempC =
-        floatOrInt .>>. spaces >>. pchar '°' >>. spaces >>. pstring "C" >>% Celsius
+        floatOrInt .>> spaces .>> pchar '°' .>> spaces .>> pstring "C" |>> fun temp -> Celsius temp
 
     let tempK =
-        floatOrInt .>>. spaces >>. pchar 'K' >>% Kelvin
+        floatOrInt .>> spaces .>> pchar 'K' |>> fun temp -> Kelvin temp
 
     let tempF =
-        floatOrInt .>>. spaces >>. pchar '°' >>. spaces >>. pchar 'F' >>% Fahrenheit
+        (floatOrInt .>> spaces .>> pchar '°' .>> spaces .>> pchar 'F') |>> fun temp -> Fahrenheit temp
 
     let temp = choice [
         attempt (tempC)
@@ -84,16 +83,17 @@ let parseInput (str:string) : DensityResult option =
     ]
 
 
-    let weightUnit =
+    let densityUnit =
         (pstring "g") >>. spaces >>. pchar '/' >>. spaces >>. choice [
             attempt (pstring "cm³")
             attempt (pstring "cm" >>. spaces >>. pstring "3")
-            attempt (pstring "cm" >>. spaces >>. pstring "cu")
+            attempt (pstring "cu" >>. spaces >>. pstring "cm")
             attempt (pstring "ml")
+            attempt (pstring "mL")
         ]
 
     let meanOfTuple ((x,y): float * float) =
-        (x + y) / (2.0)
+        (x + y) / 2.0
 
     let eol =
         spaces .>> eof
@@ -106,20 +106,22 @@ let parseInput (str:string) : DensityResult option =
 
 
     let tempQuantifier = choice [
-        pstring "at" >>. spaces
+        pstring "at" .>> spaces
     ]
     
 
+    let pDensity =
+        pRangeOrFloat .>> spaces .>> opt (densityUnit) .>> spaces .>>. opt(tempQuantifier >>. temp)
 
     let s = spaces >>. choice [
         attempt (pRangeOrFloat .>> followedBy eof) |>> fun x -> { Value = x; Temperature = None; Unit = None}
-        attempt (pRangeOrFloat .>> spaces .>> weightUnit .>> eol) |>> fun x -> { Value = x; Temperature = None; Unit = Some "g/cm"}
-        attempt (pRangeOrFloat .>> spaces .>> opt (weightUnit) .>> spaces .>> tempQuantifier .>>. temp .>> followedBy eol) |>> fun (x,y) -> { Value = x; Temperature = None; Unit = None}
+        attempt (pDensity .>> followedBy eol) |>> fun (den, temp) -> { Value = den; Temperature = temp; Unit = None}
+        attempt (skipManyTill anyChar pDensity >>. pDensity .>> skipManyTill anyChar eol) |>> fun (den,temp) -> { Value = den; Temperature = temp; Unit = None}
     ]
     
     match run s str with
     | Success (data,_,_) -> 
-        printfn "Input: %s Output: %A" str data
+        printfn "Input: %s \n Output: %A" str data
         if data.Value <> 0.0 || data.Value = nan then
             None
         else
