@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35707.178 d17.12
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ChemData", "ChemData\ChemData.fsproj", "{169B503F-2B3C-46D6-8D63-E54D507603CD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{169B503F-2B3C-46D6-8D63-E54D507603CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{169B503F-2B3C-46D6-8D63-E54D507603CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{169B503F-2B3C-46D6-8D63-E54D507603CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{169B503F-2B3C-46D6-8D63-E54D507603CD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
