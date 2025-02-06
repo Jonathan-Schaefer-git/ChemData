@@ -1,12 +1,15 @@
+
 #r "nuget:FSharp.Data"
 #r "nuget:FParsec"
 
+open System
 open FParsec
 open FSharp.Data
 
 type Temperature = 
     | Celsius of float
     | Kelvin of float
+    | Fahrenheit of float
     | Unknown of string
 
 type DensityResult = {
@@ -48,112 +51,100 @@ let getPropertySection (header:string) (subsec:PubChemJSON.Section2) =
             sec
         | None -> failwith $"Couldn't find the subsection with the header '{header}'"
 
+
+getSection "Chemical and Physical Properties" sample.Record
+|> getSubSection "Experimental Properties"
+|> getPropertySection "Density"
+|> _.Information
+
+
+
 // 0.995
 // 0.9950 g/cu cm at 25 °C
 // 0.9950 g/cm^3 at 25 °C
 // 1.000 at 277K
-let densityParsers (inp:string) =
+let parseInput (str:string) : DensityResult option =
+    let floatOrInt : Parser<float,unit> =
+        pfloat <|> (pint32 |>> float)
 
-    let str s = pstring s
+
+    let tempC =
+        floatOrInt .>>. spaces >>. pchar '°' >>. spaces >>. pstring "C" >>% Celsius
+
+    let tempK =
+        floatOrInt .>>. spaces >>. pchar 'K' >>% Kelvin
+
+    let tempF =
+        floatOrInt .>>. spaces >>. pchar '°' >>. spaces >>. pchar 'F' >>% Fahrenheit
+
+    let temp = choice [
+        attempt (tempC)
+        attempt (tempK)
+        attempt (tempF)
+    ]
 
 
-    let cubicCm = 
-        choice [
-            str "g/cu cm" >>% "g/cm^3"
-            str "g/cm^3" >>% "g/cm^3"
-            str "g/cm3" >>% "g/cm^3"
-            str "g/cc" >>% "g/cm^3"
+    let weightUnit =
+        (pstring "g") >>. spaces >>. pchar '/' >>. spaces >>. choice [
+            attempt (pstring "cm³")
+            attempt (pstring "cm" >>. spaces >>. pstring "3")
+            attempt (pstring "cm" >>. spaces >>. pstring "cu")
+            attempt (pstring "ml")
         ]
+
+    let meanOfTuple ((x,y): float * float) =
+        (x + y) / (2.0)
+
+    let eol =
+        spaces .>> eof
+
+    let pRangeOrFloat = choice [
+        attempt (floatOrInt .>> notFollowedBy (pchar '-'))
+        attempt ((spaces >>. floatOrInt .>> spaces .>> skipChar '-' .>> spaces .>>. floatOrInt .>> followedBy spaces) |>> meanOfTuple)
+        attempt ((spaces >>. floatOrInt .>> spaces .>> skipString "to" .>> spaces .>>. floatOrInt .>> followedBy spaces) |>> meanOfTuple)
+    ]
+
+
+    let tempQuantifier = choice [
+        pstring "at" >>. spaces
+    ]
     
-    let unitParser = 
-        choice [
-            cubicCm
-            str "g/mL" >>% "g/mL"
-            str "g/ml" >>% "g/mL"
-            str "g/L" >>% "g/L"
-        ]
-
-    let tempUnit =
-        choice [
-            str "°C" <|> str "C" >>% (fun v -> Celsius v)
-            str "K" >>% (fun v -> Kelvin v)
-        ]
-
-    let tempValue =
-        pfloat .>>. (spaces >>. tempUnit <|> (lookAhead (noneOf "/;") >>% (fun v -> Unknown(v.ToString()))))
-        |>> (fun (v, u) -> u v)
 
 
-    let tempPrefix =
-        choice [
-            str "at"
-            str "Temp of max density"
-            str "temperature"
-            str "density at"
-        ] .>> spaces
-
-    let temperatureParser =
-        opt (tempPrefix >>. spaces) >>. tempValue
-
-    // Main density parser
-    let densityValue = 
-        pfloat .>>. opt (spaces >>. unitParser)
+    let s = spaces >>. choice [
+        attempt (pRangeOrFloat .>> followedBy eof) |>> fun x -> { Value = x; Temperature = None; Unit = None}
+        attempt (pRangeOrFloat .>> spaces .>> weightUnit .>> eol) |>> fun x -> { Value = x; Temperature = None; Unit = Some "g/cm"}
+        attempt (pRangeOrFloat .>> spaces .>> opt (weightUnit) .>> spaces .>> tempQuantifier .>>. temp .>> followedBy eol) |>> fun (x,y) -> { Value = x; Temperature = None; Unit = None}
+    ]
     
-    let rangeSeparator = str "/" <|> str "-"
-    
-    let densityEntry =
-        densityValue .>>. opt (spaces >>. temperatureParser .>>. opt (rangeSeparator >>. temperatureParser))
-        |>> fun ((value, unit), temp) ->
-            let finalTemp = 
-                temp 
-                |> Option.map (fun (t1, t2) -> 
-                    match t2 with
-                    | Some t -> [t1; t]
-                    | None -> [t1])
-            { Value = value; Unit = unit; Temperature = finalTemp |> Option.map List.head }
-
-    // Full parser to handle multiple entries
-    let entries = 
-        sepBy densityEntry (skipAnyOf [';'; '.'; ')'; '('] <|> spaces)
-        .>> eof
-
-    match run entries inp with
-    | Success(result, _, _) -> result
-    | Failure(error, _, _) -> 
-        printfn "Parser failed: %s" error
-        []
+    match run s str with
+    | Success (data,_,_) -> 
+        printfn "Input: %s Output: %A" str data
+        if data.Value <> 0.0 || data.Value = nan then
+            None
+        else
+            Some data
+    | Failure (msg,err,state) ->
+        printfn "%s" msg
+        None
 
 
-densityParsers "0.995"
+parseInput "0.995"
+parseInput "0.9950 g/cu cm at 25 °C"
+parseInput "0.917-0.923 g/cm³ at 20°C"
+parseInput "1.000 at 277K"
+parseInput "1.025-1.029 kg/L at 4°C"
+parseInput "Expands on freezing. density: 1.000 g/mL at 3.98°C; 0.999868 at 0°C/4°C"
+
 
 let getDensities (doc:PubChemJSON.Record) =
 
-
-    getSection doc "Chemical and Physical Properties"
+    getSection "Chemical and Physical Properties" doc
     |> getSubSection "Experimental Properties"
     |> getPropertySection "Density"
     |> _.Information
-    |> Array.map(fun x -> x)
+    |> Array.map(fun x -> printfn "%A" x)
 
-    sample.Record.Section
-    |> Array.filter(fun x -> x.TocHeading = "Chemical and Physical Properties")
-    |> Array.tryHead
-    |> function
-        | Some (x) ->
-            x.Section
-            |> Array.filter(fun sec -> sec.TocHeading = "Experimental Properties")
-            |> Array.tryHead
-            |> function
-                | Some x ->
-                    x.Section
-                    |> Array.filter(fun sec -> sec.TocHeading = "Density")
-                    |> Array.tryHead
-                    |> function
-                        | Some x ->
-                            x.
-                        | None -> failwith "Doesnt have an associated density record"
-                | None _ -> failwith "No experimental properties for this record"
-        | None _ -> failwith "No description of chemical and physical properties for this record"
 
 let html = HtmlDocument.Load("https://pubchem.ncbi.nlm.nih.gov/compound/962")
 

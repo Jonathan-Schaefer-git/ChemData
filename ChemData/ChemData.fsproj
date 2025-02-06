@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="Pubchem\Data-Filtering.fsx" />
     <None Include="Pubchem\Testing.fsx" />
     <Compile Include="Pubchem\Pubchem.fs" />
     <Compile Include="Program.fs" />
