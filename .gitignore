@@ -363,3 +363,6 @@ MigrationBackup/
 FodyWeavers.xsd
 /ChemData/Compound-labled-all-list.json
 /ChemData/Compound-labled-all-sample.json
+/ChemData/JSON-FULL
+/ChemData/SDF
+/ChemData/Compound-labled-all-list-repaired.json
