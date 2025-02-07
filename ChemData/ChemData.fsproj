@@ -6,22 +6,28 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="Compound-labled-all-list-repaired.json" />
     <Content Include="Compound-labled-all-sample.json" />
     <Content Include="Compound-labled-all-list.json" />
+    <None Include="pubchem\Data-Sourcing.fsx" />
     <None Include="Pubchem\Data-Filtering.fsx" />
     <None Include="Pubchem\Testing.fsx" />
     <Compile Include="Pubchem\Pubchem.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
-  <ItemGroup />
-
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
     <PackageReference Include="FSharp.Data" Version="6.4.1" />
     <PackageReference Include="FSharp.Data.Npgsql" Version="2.1.0" />
     <PackageReference Include="NCDK" Version="1.6.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Npgsql.FSharp" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="JSON-FULL\" />
+    <Folder Include="SDF\" />
   </ItemGroup>
 
 </Project>

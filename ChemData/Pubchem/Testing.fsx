@@ -11,9 +11,20 @@ type Temperature =
     | Fahrenheit of float
     | Unknown of string
 
+
+type Units =
+    | Gram
+    | Kilogram
+    | CubicCentimeter
+    | CubicMeter
+    | Liter
+    | Milliliter
+    | CubicDecimeter
+
+
 type DensityResult = {
     Value: float
-    Unit: string option
+    Units: (Units * Units) option
     Temperature: Temperature option
 }
 
@@ -66,68 +77,87 @@ let parseInput (str:string) : DensityResult option =
     let floatOrInt : Parser<float,unit> =
         pfloat <|> (pint32 |>> float)
 
-
     let tempC =
-        floatOrInt .>> spaces .>> pchar '°' .>> spaces .>> pstring "C" |>> fun temp -> Celsius temp
+        floatOrInt .>> spaces .>> pchar '°' .>> spaces .>> pstring "C" |>> Celsius
 
     let tempK =
-        floatOrInt .>> spaces .>> pchar 'K' |>> fun temp -> Kelvin temp
+        floatOrInt .>> spaces .>> pchar 'K' |>> Kelvin
 
     let tempF =
-        (floatOrInt .>> spaces .>> pchar '°' .>> spaces .>> pchar 'F') |>> fun temp -> Fahrenheit temp
+        floatOrInt .>> spaces .>> pchar '°' .>> spaces .>> pchar 'F' |>> Fahrenheit
 
     let temp = choice [
-        attempt (tempC)
-        attempt (tempK)
-        attempt (tempF)
+        attempt tempC
+        attempt tempK
+        attempt tempF
+        floatOrInt .>> restOfLine false |>> (fun t -> Unknown(string t))
     ]
 
-
     let densityUnit =
-        (pstring "g") >>. spaces >>. pchar '/' >>. spaces >>. choice [
-            attempt (pstring "cm³")
-            attempt (pstring "cm" >>. spaces >>. pstring "3")
-            attempt (pstring "cu" >>. spaces >>. pstring "cm")
-            attempt (pstring "ml")
-            attempt (pstring "mL")
+        choice [
+            pstring "g" >>% Gram
+            pstring "kg" >>% Kilogram
+        ] 
+        .>> spaces .>> pchar '/' .>> spaces .>>. 
+        choice [
+            
+            pstring "m³" >>% CubicMeter
+            pstring "dm³" >>% CubicDecimeter
+            
+            pstring "cm³" >>% CubicCentimeter
+            pstring "cm3" >>% CubicCentimeter
+            pstring "cu" >>. spaces >>. pstring "cm" >>% CubicCentimeter
+            pstring "cc" >>% CubicCentimeter
+            
+            pstring "l" >>% Liter
+            pstring "L" >>% Liter
+            
+            pstring "ml" >>% Milliliter
+            pstring "mL" >>% Milliliter
+            
+            
         ]
 
-    let meanOfTuple ((x,y): float * float) =
-        (x + y) / 2.0
+    let meanOfTuple ((x,y): float * float) = (x + y) / 2.0
 
-    let eol =
-        spaces .>> eof
+    let eol = spaces .>> eof
 
     let pRangeOrFloat = choice [
         attempt (floatOrInt .>> notFollowedBy (pchar '-'))
-        attempt ((spaces >>. floatOrInt .>> spaces .>> skipChar '-' .>> spaces .>>. floatOrInt .>> followedBy spaces) |>> meanOfTuple)
-        attempt ((spaces >>. floatOrInt .>> spaces .>> skipString "to" .>> spaces .>>. floatOrInt .>> followedBy spaces) |>> meanOfTuple)
+        attempt (floatOrInt .>> spaces .>> skipChar '-' .>> spaces .>>. floatOrInt |>> meanOfTuple)
+        attempt (floatOrInt .>> spaces .>> skipString "to" .>> spaces .>>. floatOrInt |>> meanOfTuple)
     ]
 
-
-    let tempQuantifier = choice [
-        pstring "at" .>> spaces
-    ]
-    
+    let tempQuantifier = 
+        choice [
+            pstring "at" .>> spaces
+            pstring "Temp" .>> spaces .>> pstring "of" .>> spaces .>> pstring "max" .>> spaces .>> pstring "density"
+        ]
 
     let pDensity =
-        pRangeOrFloat .>> spaces .>> opt (densityUnit) .>> spaces .>>. opt(tempQuantifier >>. temp)
+        pipe3
+            pRangeOrFloat
+            (spaces >>. opt densityUnit)
+            (spaces >>. opt (tempQuantifier >>. spaces >>. temp))
+            (fun value unit temp -> 
+                { Value = value
+                  Units = unit
+                  Temperature = temp })
 
-    let s = spaces >>. choice [
-        attempt (pRangeOrFloat .>> followedBy eof) |>> fun x -> { Value = x; Temperature = None; Unit = None}
-        attempt (pDensity .>> followedBy eol) |>> fun (den, temp) -> { Value = den; Temperature = temp; Unit = None}
-        attempt (skipManyTill anyChar pDensity >>. pDensity .>> skipManyTill anyChar eol) |>> fun (den,temp) -> { Value = den; Temperature = temp; Unit = None}
-    ]
+    let s = 
+        spaces >>. choice [
+            attempt (pDensity .>> eol)
+            attempt (skipManyTill anyChar pDensity >>. pDensity .>> eol)
+            attempt (pRangeOrFloat .>> eol |>> fun v -> 
+                { Value = v; Units = None; Temperature = None })
+        ]
     
     match run s str with
-    | Success (data,_,_) -> 
-        printfn "Input: %s \n Output: %A" str data
-        if data.Value <> 0.0 || data.Value = nan then
-            None
-        else
-            Some data
-    | Failure (msg,err,state) ->
-        printfn "%s" msg
+    | Success (data, _, _) -> 
+        printfn "Input: %s \nParsed: %A" str data
+        if data.Value <> 0.0 then Some data else None
+    | Failure (msg, _, _) ->
+        printfn "Parse failed for '%s': %s" str msg
         None
 
 
@@ -136,7 +166,6 @@ parseInput "0.9950 g/cu cm at 25 °C"
 parseInput "0.917-0.923 g/cm³ at 20°C"
 parseInput "1.000 at 277K"
 parseInput "1.025-1.029 kg/L at 4°C"
-parseInput "Expands on freezing. density: 1.000 g/mL at 3.98°C; 0.999868 at 0°C/4°C"
 
 
 let getDensities (doc:PubChemJSON.Record) =
