@@ -1,4 +1,3 @@
-
 #r "nuget:FSharp.Data"
 #r "nuget:FSharp.Stats"
 #r "nuget:Newtonsoft.Json"
@@ -12,26 +11,26 @@ open JsonRepairUtils
 open System.Net
 open System.Diagnostics
 
-type Compound = JsonProvider<"C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\Compound-labled-all-sample.json">
+type Compound = JsonProvider<"../Compound-labled-all-sample.json">
 
 
 
 
 
-let inpJson = File.ReadAllText("C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\Compound-labled-all-list.json")
+//let inpJson = File.ReadAllText("../Compound-labled-all-list.json")
 
 
-let jsonRepair = JsonRepair()
+//let jsonRepair = JsonRepair()
 
-jsonRepair.ThrowExceptions <- true
+//jsonRepair.ThrowExceptions <- true
 
 
 
-try
-    let repairedJson = jsonRepair.Repair(inpJson)
-    File.WriteAllText("C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\Compound-labled-all-list-repaired.json", repairedJson)
-with
-    | :? JsonRepairError as e -> printfn "Error: %A" e
+//try
+//    let repairedJson = jsonRepair.Repair(inpJson)
+//    File.WriteAllText("C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\Compound-labled-all-list-repaired.json", repairedJson)
+//with
+//    | :? JsonRepairError as e -> printfn "Error: %A" e
 
 //let reps =
 //    File.ReadAllText("C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\Compound-labled-all-list-repaired.json")
@@ -39,15 +38,18 @@ with
 
 
 
-let compounds = Compound.Load("C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\Compound-labled-all-list-repaired.json")
-
+let compounds = Compound.Load("../Compound-labled-all-list-repaired.json")
 let compoundIds = compounds |> Array.map _.Cid
 
 
+printfn $"{..}"
+JsonConvert.SerializeObject(compoundIds) |> fun data -> File.WriteAllText("../Compounds-CID-list.json", data)
+
+
 [<Literal>]
-let sdfPath = "C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\SDF\\"
+let sdfPath = "../SDF"
 [<Literal>]
-let jsonPath = "C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\"
+let jsonPath = "../JSON-FULL"
 
 
 let deleteAllFiles (folderPath: string) =
@@ -110,5 +112,5 @@ let statusFeedback =
     |> Async.RunSynchronously
     
 printfn "Finished in %ds" (stopwatch.ElapsedMilliseconds / 1000L)
-
-
+printfn $"Successes: {statusFeedback |> Array.filter (fun x -> x = true) |> Array.length}"
+printfn $"Failures: {statusFeedback |> Array.filter (fun x -> x = false) |> Array.length}"

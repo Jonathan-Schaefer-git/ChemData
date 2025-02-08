@@ -76,5 +76,5 @@ module Database =
 
 [<EntryPoint>]
 let main _ =
-    densityParsers "0.9950 g/cm^3 at 25 °C" |> printfn "%A"
+    generateData()
     0

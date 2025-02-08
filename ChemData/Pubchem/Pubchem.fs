@@ -3,26 +3,38 @@
 open NCDK.Smiles
 open NCDK.Default
 
-open FSharp.Data
+open System.IO
+open System.Diagnostics
+open System.Net
+
 open FParsec
-
-
+open FSharp.Data
 
 type Temperature = 
     | Celsius of float
     | Kelvin of float
+    | Fahrenheit of float
     | Unknown of string
+
+    
+type Units =
+    | Gram
+    | Kilogram
+    | CubicCentimeter
+    | CubicMeter
+    | Liter
+    | Milliliter
+    | CubicDecimeter
+
 
 type DensityResult = {
     Value: float
-    Unit: string option
+    Units: (Units * Units) option
     Temperature: Temperature option
 }
 
 
 type PubChemJSON = JsonProvider<"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/702/JSON/">
-
-let sample = PubChemJSON.GetSample()
 
 let getSection (header:string) (record:PubChemJSON.Record) =
     record.Section
@@ -52,107 +64,166 @@ let getPropertySection (header:string) (subsec:PubChemJSON.Section2) =
             sec
         | None -> failwith $"Couldn't find the subsection with the header '{header}'"
 
+
 // 0.995
 // 0.9950 g/cu cm at 25 °C
 // 0.9950 g/cm^3 at 25 °C
 // 1.000 at 277K
-let densityParsers (inp:string) =
-    let ws = spaces
-    let str s = pstring s
-    
-    let parseRange = 
-        pipe2
-            (pfloat .>> ws)
-            (pfloat .>> ws)
-            (fun a b -> [a; b])
-    
-    // Enhanced temperature parser
-    let tempUnit = choice [
-        (str "°C" <|> str "C" >>% Celsius)
-        (str "K" >>% Kelvin)
-        (restOfLine true >>% Unknown)
+let parseInput (str:string) : DensityResult option =
+    let floatOrInt : Parser<float,unit> =
+        pfloat <|> (pint32 |>> float)
+
+    let tempC =
+        floatOrInt .>> spaces .>> pchar '°' .>> spaces .>> pstring "C" |>> Celsius
+
+    let tempK =
+        floatOrInt .>> spaces .>> pchar 'K' |>> Kelvin
+
+    let tempF =
+        floatOrInt .>> spaces .>> pchar '°' .>> spaces .>> pchar 'F' |>> Fahrenheit
+
+    let temp = choice [
+        attempt tempC
+        attempt tempK
+        attempt tempF
+        floatOrInt .>> restOfLine false |>> (fun t -> Unknown(string t))
     ]
-    
-    let temperatureParser =
-        (pfloat .>> ws .>>. tempUnit)
-        |>> function
-            | (v, Celsius) -> Celsius v
-            | (v, Kelvin) -> Kelvin v
-            | (v, Unknown u) -> Unknown $"{v} {u}"
-    
-    // Enhanced unit parser with normalization
-    let unitParser = 
-        (str "g" <|> str "kg") .>>. 
-        (ws >>. str "/" >>. ws >>. (
-            str "cm³" <|> str "cm3" <|> str "cu cm" <|> str "cc" >>% "cm³"
-            <|> str "mL" <|> str "ml" >>% "mL"
-            <|> str "L" >>% "L"
-        )) |>> (fun (mass, vol) -> $"{mass}/{vol}")
-    
-    // Value parser with range support
-    let valueParser =
-        attempt (parseRange |>> (fun vs -> vs, true))
-        <|> (pfloat |>> (fun v -> [v], false))
-    
-    // Main density parser
-    let densityEntry =
+
+    let densityUnit =
+        choice [
+            pstring "g" >>% Gram
+            pstring "kg" >>% Kilogram
+        ] 
+        .>> spaces .>> pchar '/' .>> spaces .>>. 
+        choice [
+            
+            pstring "m³" >>% CubicMeter
+            pstring "dm³" >>% CubicDecimeter
+            
+            pstring "cm³" >>% CubicCentimeter
+            pstring "cm3" >>% CubicCentimeter
+            pstring "cu" >>. spaces >>. pstring "cm" >>% CubicCentimeter
+            pstring "cc" >>% CubicCentimeter
+            
+            pstring "l" >>% Liter
+            pstring "L" >>% Liter
+            
+            pstring "ml" >>% Milliliter
+            pstring "mL" >>% Milliliter
+            
+            
+        ]
+
+    let meanOfTuple ((x,y): float * float) = (x + y) / 2.0
+
+    let eol = spaces .>> eof
+
+    let pRangeOrFloat = choice [
+        attempt (floatOrInt .>> notFollowedBy (pchar '-'))
+        attempt (floatOrInt .>> spaces .>> skipChar '-' .>> spaces .>>. floatOrInt |>> meanOfTuple)
+        attempt (floatOrInt .>> spaces .>> skipString "to" .>> spaces .>>. floatOrInt |>> meanOfTuple)
+    ]
+
+    let tempQuantifier = 
+        choice [
+            pstring "at" .>> spaces
+            pstring "Temp" .>> spaces .>> pstring "of" .>> spaces .>> pstring "max" .>> spaces .>> pstring "density"
+        ]
+
+    let pDensity =
         pipe3
-            (valueParser .>> ws)
-            (opt (unitParser .>> ws))
-            (opt (str "at" >>. ws >>. temperatureParser))
-            (fun (values, isRange) unit temp ->
-                values |> List.map (fun value ->
-                    { Value = value
-                      Unit = unit
-                      Temperature = temp }
-                ))
-    // Full parser handling multiple entries
-    let entries = 
-        many (densityEntry .>> ws .>> skipMany (noneOf ['0'-'9';'.']))
+            pRangeOrFloat
+            (spaces >>. opt densityUnit)
+            (spaces >>. opt (tempQuantifier >>. spaces >>. temp))
+            (fun value unit temp -> 
+                { Value = value
+                  Units = unit
+                  Temperature = temp })
+
+    let s = 
+        spaces >>. choice [
+            attempt (pDensity .>> eol)
+            attempt (skipManyTill anyChar pDensity >>. pDensity .>> eol)
+            attempt (pRangeOrFloat .>> eol |>> fun v -> 
+                { Value = v; Units = None; Temperature = None })
+        ]
     
-    match run (entries .>> eof) inp with
-    | Success(result, _, _) -> List.concat result
-    | Failure(error, _, _) -> 
-        printfn "Parser error: %s" error
-        []
-
-
+    match run s str with
+    | Success (data, _, _) -> 
+        printfn "Input: %s \nParsed: %A" str data
+        if data.Value <> 0.0 then Some data else None
+    | Failure (msg, _, _) ->
+        printfn "Parse failed for '%s': %s" str msg
+        None
 
 
 let getDensities (doc:PubChemJSON.Record) =
-
-
     getSection "Chemical and Physical Properties" doc
     |> getSubSection "Experimental Properties"
     |> getPropertySection "Density"
     |> _.Information
-    |> Array.map(fun x -> x)
-    |> ignore
-    sample.Record.Section
-    |> Array.filter(fun x -> x.TocHeading = "Chemical and Physical Properties")
-    |> Array.tryHead
-    |> function
-        | Some (x) ->
-            x.Section
-            |> Array.filter(fun sec -> sec.TocHeading = "Experimental Properties")
-            |> Array.tryHead
-            |> function
-                | Some x ->
-                    x.Section
-                    |> Array.filter(fun sec -> sec.TocHeading = "Density")
-                    |> Array.tryHead
-                    |> function
-                        | Some x ->
-                            ()
-                        | None -> failwith "Doesnt have an associated density record"
-                | None _ -> failwith "No experimental properties for this record"
-        | None _ -> failwith "No description of chemical and physical properties for this record"
+    |> Array.map(fun x -> printfn "%A" x)
 
-let html = HtmlDocument.Load("https://pubchem.ncbi.nlm.nih.gov/compound/962")
-
-html.Body().DescendantsWithPath(fun x -> x.HasAttribute("id", "Experimental-Properties"))
+let basePath = System.AppDomain.CurrentDomain.BaseDirectory
+let projectRoot = Path.GetFullPath(Path.Combine(basePath, "../../.."))
+printfn "Project root: %s" projectRoot
 
 
-html.Body().CssSelect("section#Experimental-Properties")
+let sdfPath = Path.Combine(projectRoot, "SDF")
+
+let jsonPath = Path.Combine(projectRoot, "JSON-FULL")
 
 
+type Compound = JsonProvider<"Compound-labled-all-sample.json">
+
+type CompoundIds = JsonProvider<"Compounds-CID-list.json">
+
+
+
+// Data acquisition
+let generateData () =
+    
+    let compoundIds = CompoundIds.Load(Path.Combine(projectRoot, "Compounds-CID-list.json"))
+    let client = new Http.HttpClient()
+    let stopwatch = Stopwatch.StartNew()
+    
+    printfn "Start"
+    let getbyCID cid =
+        client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON/") |> Async.AwaitTask
+    
+    let getSDFbyCID cid =
+        client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/CID/{cid}/record/SDF?record_type=3d") |> Async.AwaitTask
+    
+    let writeData (cid:int) (data:string) =
+        File.WriteAllTextAsync($"{jsonPath}/{cid}.json", data) |> Async.AwaitTask
+    
+    let writeStructure (cid:int) (data:string) =
+        File.WriteAllTextAsync($"{sdfPath}/{cid}.sdf", data) |> Async.AwaitTask
+    
+    
+    let pipeline cid =
+        async {
+            printfn "Getting %d" cid    
+            try
+                let! record = getbyCID cid
+                let! sdf = getSDFbyCID cid
+                do! writeData cid record
+                do! writeStructure cid sdf
+                do! Async.Sleep 500
+                return true
+            with
+                | ex -> 
+                    printfn $"Failed obtaining all data associated with CID: {cid}"
+                    printfn $"Error: {ex.Message}"
+                    return false
+        }
+    
+    let statusFeedback = 
+        compoundIds
+        |> Array.map pipeline
+        |> Async.Sequential
+        |> Async.RunSynchronously
+        
+    printfn "Finished in %ds" (stopwatch.ElapsedMilliseconds / 1000L)
+    printfn $"Successes: {statusFeedback |> Array.filter (fun x -> x = true) |> Array.length}"
+    printfn $"Failures: {statusFeedback |> Array.filter (fun x -> x = false) |> Array.length}"

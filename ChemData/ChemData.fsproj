@@ -6,11 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="Compounds-CID-list.json" />
     <Content Include="Compound-labled-all-list-repaired.json" />
     <Content Include="Compound-labled-all-sample.json" />
     <Content Include="Compound-labled-all-list.json" />
     <None Include="pubchem\Data-Sourcing.fsx" />
-    <None Include="Pubchem\Data-Filtering.fsx" />
     <None Include="Pubchem\Testing.fsx" />
     <Compile Include="Pubchem\Pubchem.fs" />
     <Compile Include="Program.fs" />
