@@ -187,6 +187,14 @@ let generateData () =
     let client = new Http.HttpClient()
     let stopwatch = Stopwatch.StartNew()
     
+    let startCid = 131814851
+
+
+    let (_, ahh) = compoundIds |> Array.partition(fun x -> x < startCid)
+
+    printfn $"Start at {startCid}"
+
+
     printfn "Start"
     let getbyCID cid =
         client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON/") |> Async.AwaitTask
@@ -219,7 +227,7 @@ let generateData () =
         }
     
     let statusFeedback = 
-        compoundIds
+        ahh
         |> Array.map pipeline
         |> Async.Sequential
         |> Async.RunSynchronously
