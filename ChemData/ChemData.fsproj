@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="density-list.json" />
     <Content Include="Compounds-CID-list.json" />
     <Content Include="Compound-labled-all-list-repaired.json" />
     <Content Include="Compound-labled-all-sample.json" />

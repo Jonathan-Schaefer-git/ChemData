@@ -1,9 +1,13 @@
 #r "nuget:FSharp.Data"
 #r "nuget:FParsec"
+#r "nuget: JsonRepairUtils"
+
 
 open System
 open FParsec
 open FSharp.Data
+open System.IO
+open JsonRepairUtils
 
 type Temperature = 
     | Celsius of float
@@ -73,7 +77,7 @@ getSection "Chemical and Physical Properties" sample.Record
 // 0.9950 g/cu cm at 25 °C
 // 0.9950 g/cm^3 at 25 °C
 // 1.000 at 277K
-let parseInput (str:string) : DensityResult option =
+let parseDensity (str:string) : DensityResult option =
     let floatOrInt : Parser<float,unit> =
         pfloat <|> (pint32 |>> float)
 
@@ -129,10 +133,11 @@ let parseInput (str:string) : DensityResult option =
     ]
 
     let tempQuantifier = 
-        choice [
+        spaces .>> choice [
+            pstring "@" .>> spaces 
             pstring "at" .>> spaces
-            pstring "Temp" .>> spaces .>> pstring "of" .>> spaces .>> pstring "max" .>> spaces .>> pstring "density"
         ]
+
 
     let pDensity =
         pipe3
@@ -148,8 +153,7 @@ let parseInput (str:string) : DensityResult option =
         spaces >>. choice [
             attempt (pDensity .>> eol)
             attempt (skipManyTill anyChar pDensity >>. pDensity .>> eol)
-            attempt (pRangeOrFloat .>> eol |>> fun v -> 
-                { Value = v; Units = None; Temperature = None })
+            attempt (pRangeOrFloat .>> eol |>> fun v -> { Value = v; Units = None; Temperature = None })
         ]
     
     match run s str with
@@ -161,31 +165,38 @@ let parseInput (str:string) : DensityResult option =
         None
 
 
-parseInput "0.995"
-parseInput "0.9950 g/cu cm at 25 °C"
-parseInput "0.917-0.923 g/cm³ at 20°C"
-parseInput "1.000 at 277K"
-parseInput "1.025-1.029 kg/L at 4°C"
 
 
-let getDensities (doc:PubChemJSON.Record) =
+let getFile (cid:int) =
+    async{
+        let! fileContent = File.ReadAllTextAsync($"C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\{cid}.json") |> Async.AwaitTask
+        return PubChemJSON.Parse(fileContent)
+    }
 
-    getSection "Chemical and Physical Properties" doc
+let extractionPipeline (record:PubChemJSON.Root) = 
+    getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"
     |> getPropertySection "Density"
     |> _.Information
-    |> Array.map(fun x -> printfn "%A" x)
+    |> Array.choose(fun info ->
+        info
+        |> _.Value.StringWithMarkup[0].String
+        |> _.String
+    )
+    |> Array.map parseDensity
 
 
-let html = HtmlDocument.Load("https://pubchem.ncbi.nlm.nih.gov/compound/962")
+type DensityList = JsonProvider<"../density-list-repaired.json">
 
-html.Body().DescendantsWithPath(fun x -> x.HasAttribute("id", "Experimental-Properties"))
-
-
-html.Body().CssSelect("section#Experimental-Properties")
-
-let t = html.CssSelect("section#Experimental-Properties")
+let densityCids =
+    DensityList.Load("../density-list-repaired.json")
+    |> Array.map _.Cid
 
 
-let googleUrl = "http://www.google.co.uk/search?q=FSharp.Data"
-let doc = HtmlDocument.Load(googleUrl)
+let process (cids:int array) =
+    async {
+        cids
+        |> Array.map (fun cid -> getFile cid))
+    } 
+    |> Async.Parallel 
+    |> Async.RunSynchronously

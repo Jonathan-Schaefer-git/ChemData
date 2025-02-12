@@ -76,5 +76,5 @@ module Database =
 
 [<EntryPoint>]
 let main _ =
-    generateData()
+
     0

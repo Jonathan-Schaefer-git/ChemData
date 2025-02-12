@@ -69,7 +69,7 @@ let getPropertySection (header:string) (subsec:PubChemJSON.Section2) =
 // 0.9950 g/cu cm at 25 °C
 // 0.9950 g/cm^3 at 25 °C
 // 1.000 at 277K
-let parseInput (str:string) : DensityResult option =
+let parseDensity (str:string) : DensityResult option =
     let floatOrInt : Parser<float,unit> =
         pfloat <|> (pint32 |>> float)
 
