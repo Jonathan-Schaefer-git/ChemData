@@ -35,42 +35,31 @@ type DensityResult = {
 
 type PubChemJSON = JsonProvider<"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/702/JSON/">
 
-let sample = PubChemJSON.GetSample()
-
 let getSection (header:string) (record:PubChemJSON.Record) =
     record.Section
     |> Array.filter(fun secs -> secs.TocHeading = header)
     |> Array.tryHead
-    |> function
-        | Some sec ->
-            sec
-        | None -> failwith $"Couldn't find the section with the header '{header}'"
 
-let getSubSection (header:string) (sec:PubChemJSON.Section) =
-    sec.Section
-    |> Array.filter(fun secs -> secs.TocHeading = header)
-    |> Array.tryHead
-    |> function
-        | Some sec ->
-            sec
-        | None -> failwith $"Couldn't find the subsection with the header '{header}'"
+let getSubSection (header:string) (sec:(PubChemJSON.Section) option) =
+    match sec with
+    | Some subsec ->
+        subsec.Section
+        |> Array.filter(fun secs -> secs.TocHeading = header)
+        |> Array.tryHead
+    | None -> 
+        printfn $"Failed to get subsection: {header}"
+        None
 
 
-let getPropertySection (header:string) (subsec:PubChemJSON.Section2) = 
-    subsec.Section
-    |> Array.filter(fun secs -> secs.TocHeading = header)
-    |> Array.tryHead
-    |> function
-        | Some sec ->
-            sec
-        | None -> failwith $"Couldn't find the subsection with the header '{header}'"
-
-
-getSection "Chemical and Physical Properties" sample.Record
-|> getSubSection "Experimental Properties"
-|> getPropertySection "Density"
-|> _.Information
-
+let getPropertySection (header:string) (subsec:PubChemJSON.Section2 option) = 
+    match subsec with
+    | Some propsec ->
+        propsec.Section
+        |> Array.filter(fun secs -> secs.TocHeading = header)
+        |> Array.tryHead
+    | None -> 
+        printfn $"Failed to get subsection: {header}"
+        None
 
 
 // 0.995
@@ -99,69 +88,78 @@ let parseDensity (str:string) : DensityResult option =
 
     let densityUnit =
         choice [
-            pstring "g" >>% Gram
-            pstring "kg" >>% Kilogram
+            pstringCI "g" >>% Gram
+            pstringCI "kg" >>% Kilogram
         ] 
         .>> spaces .>> pchar '/' .>> spaces .>>. 
         choice [
             
-            pstring "m³" >>% CubicMeter
-            pstring "dm³" >>% CubicDecimeter
+            pstringCI "m³" >>% CubicMeter
+            pstringCI "dm³" >>% CubicDecimeter
             
-            pstring "cm³" >>% CubicCentimeter
-            pstring "cm3" >>% CubicCentimeter
-            pstring "cu" >>. spaces >>. pstring "cm" >>% CubicCentimeter
-            pstring "cc" >>% CubicCentimeter
+            pstringCI "cm³" >>% CubicCentimeter
+            pstringCI "cm3" >>% CubicCentimeter
+            pstringCI "cu" >>. spaces >>. pstringCI "cm" >>% CubicCentimeter
+            pstringCI "cc" >>% CubicCentimeter
             
-            pstring "l" >>% Liter
-            pstring "L" >>% Liter
+            pstringCI "l" >>% Liter
             
-            pstring "ml" >>% Milliliter
-            pstring "mL" >>% Milliliter
-            
+            pstringCI "ml" >>% Milliliter            
             
         ]
 
     let meanOfTuple ((x,y): float * float) = (x + y) / 2.0
 
     let eol = spaces .>> eof
-
+    
+    let pRangeIndicators = 
+        spaces .>> choice [
+            pstringCI "to"
+            pstring "-"
+        ] .>> spaces
+        
     let pRangeOrFloat = choice [
-        attempt (floatOrInt .>> notFollowedBy (pchar '-'))
-        attempt (floatOrInt .>> spaces .>> skipChar '-' .>> spaces .>>. floatOrInt |>> meanOfTuple)
-        attempt (floatOrInt .>> spaces .>> skipString "to" .>> spaces .>>. floatOrInt |>> meanOfTuple)
+        attempt (floatOrInt .>> spaces .>> notFollowedBy (pchar '-'))
+        attempt (floatOrInt .>> pRangeIndicators .>>. floatOrInt |>> meanOfTuple)
+        attempt (floatOrInt .>> spaces .>> skipStringCI "to" .>> spaces .>>. floatOrInt |>> meanOfTuple)
     ]
+
+    
 
     let tempQuantifier = 
         spaces .>> choice [
+            
             pstring "@" .>> spaces 
-            pstring "at" .>> spaces
+            pstringCI "at" .>> spaces
         ]
 
-
+    let tempPair = 
+        temp .>> opt (spaces >>. pchar '/' >>. spaces >>. temp)
+    
     let pDensity =
         pipe3
             pRangeOrFloat
             (spaces >>. opt densityUnit)
-            (spaces >>. opt (tempQuantifier >>. spaces >>. temp))
+            (spaces >>. opt (tempQuantifier >>. tempPair))
             (fun value unit temp -> 
                 { Value = value
                   Units = unit
                   Temperature = temp })
+
 
     let s = 
         spaces >>. choice [
             attempt (pDensity .>> eol)
             attempt (skipManyTill anyChar pDensity >>. pDensity .>> eol)
             attempt (pRangeOrFloat .>> eol |>> fun v -> { Value = v; Units = None; Temperature = None })
+            attempt (pDensity .>> pchar '(' .>> skipManyTill anyChar (pchar ')') .>> eol)
         ]
-    
+
     match run s str with
-    | Success (data, _, _) -> 
-        printfn "Input: %s \nParsed: %A" str data
+    | Success (data, _, _) ->
         if data.Value <> 0.0 then Some data else None
     | Failure (msg, _, _) ->
-        printfn "Parse failed for '%s': %s" str msg
+        printfn $"Parse failed for: {str} with {msg}"
         None
 
 
@@ -169,21 +167,32 @@ let parseDensity (str:string) : DensityResult option =
 
 let getFile (cid:int) =
     async{
-        let! fileContent = File.ReadAllTextAsync($"C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\{cid}.json") |> Async.AwaitTask
-        return PubChemJSON.Parse(fileContent)
+        if File.Exists($"C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\{cid}.json") then
+            let! fileContent = File.ReadAllTextAsync($"C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\{cid}.json") |> Async.AwaitTask
+            return Some (PubChemJSON.Parse(fileContent))
+        else
+            return None
     }
 
 let extractionPipeline (record:PubChemJSON.Root) = 
     getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"
     |> getPropertySection "Density"
-    |> _.Information
-    |> Array.choose(fun info ->
-        info
-        |> _.Value.StringWithMarkup[0].String
-        |> _.String
-    )
-    |> Array.map parseDensity
+    |> function
+        | Some x -> 
+            if Array.length x.Information = 0 then
+                None
+            else
+                x.Information
+                |> Array.choose(fun info ->
+                    info
+                    |> _.Value.StringWithMarkup[0].String
+                    |> _.String
+                )
+                |> Array.map parseDensity
+                |> Some
+        | None -> None
+
 
 
 type DensityList = JsonProvider<"../density-list-repaired.json">
@@ -193,10 +202,16 @@ let densityCids =
     |> Array.map _.Cid
 
 
-let process (cids:int array) =
+let processDensity (cid:int) =
     async {
-        cids
-        |> Array.map (fun cid -> getFile cid))
-    } 
-    |> Async.Parallel 
-    |> Async.RunSynchronously
+        let! record = getFile cid
+        match record with
+        | Some record ->
+            return Some (cid, extractionPipeline record)
+        | None -> 
+            return None
+    }
+
+parseDensity "0.853 - 0.859"
+parseDensity "1.468 @ 20 °C/4 °C"
+parseDensity "0.910 - 0.925 at 59.9 °F (NTP, 1992)"

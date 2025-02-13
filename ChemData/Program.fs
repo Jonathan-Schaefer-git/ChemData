@@ -1,6 +1,6 @@
 ﻿open Npgsql.FSharp
 open Pubchem
-
+open Newtonsoft.Json
 
 
 
@@ -76,5 +76,13 @@ module Database =
 
 [<EntryPoint>]
 let main _ =
+    let densityData =
+        densityCids
+        |> Array.map (fun cid -> processDensity cid)
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> Array.choose (fun x -> x)
 
+
+    printfn $"Parsed {densityData.Length} successfully"
     0
