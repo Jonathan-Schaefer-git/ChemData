@@ -42,7 +42,6 @@ let compounds = Compound.Load("../Compound-labled-all-list-repaired.json")
 let compoundIds = compounds |> Array.map _.Cid
 
 
-printfn $"{..}"
 JsonConvert.SerializeObject(compoundIds) |> fun data -> File.WriteAllText("../Compounds-CID-list.json", data)
 
 

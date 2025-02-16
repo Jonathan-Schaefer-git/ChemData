@@ -1,8 +1,9 @@
 ﻿open Npgsql.FSharp
 open Pubchem
 open Newtonsoft.Json
+open DataSourcing
 
-
+open System.IO
 
 type Source =
     | Pubchem = 1
@@ -85,4 +86,9 @@ let main _ =
 
 
     printfn $"Parsed {densityData.Length} successfully"
+
+    JsonConvert.SerializeObject(densityData) |> fun data -> File.WriteAllText(Path.Combine(projectRoot,"density-data.json"), data)
+
+
+
     0
