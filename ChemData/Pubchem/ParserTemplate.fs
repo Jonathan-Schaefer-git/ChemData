@@ -2,10 +2,10 @@
 open FParsec
 
 type Temperature = 
+    | Pair of Temperature * Temperature
     | Celsius of float
     | Kelvin of float
     | Fahrenheit of float
-    | Unknown of string
 
 
 type Units =
@@ -34,6 +34,7 @@ type Units =
     | Milliliter
     | Second
     | SecondSquared
+    | MMHg
 
 let floatOrInt : Parser<float,unit> =
     pfloat <|> (pint32 |>> float)
@@ -51,9 +52,7 @@ let temp = choice [
     attempt tempC
     attempt tempK
     attempt tempF
-    floatOrInt .>> restOfLine false |>> (fun t -> Unknown(string t))
 ]
-
 
 
 let weightUnits : Parser<Units,unit> =
@@ -109,7 +108,6 @@ let volumeUnits : Parser<Units,unit> =
         pstringCI "dm3" >>% Decimeter
         pstringCI "cu" >>. spaces >>. pstringCI "dm" >>% Decimeter
 
-
         pstringCI "cm³" >>% CubicCentimeter
         pstringCI "cm3" >>% CubicCentimeter
         pstringCI "cm^3" >>% CubicCentimeter
@@ -117,6 +115,10 @@ let volumeUnits : Parser<Units,unit> =
         pstringCI "cc" >>% CubicCentimeter
         pstringCI "c.c." >>% CubicCentimeter
 
+        pstringCI "mm³" >>% CubicMillimeter 
+        pstringCI "mm^3" >>% CubicMillimeter 
+        pstringCI "mm3" >>% CubicMillimeter
+        pstringCI "cu" >>. spaces >>. pstringCI "mm" >>% CubicMillimeter
 
         pstringCI "l" >>% Liter
         pstringCI "dl" >>% Deciliter
@@ -136,6 +138,12 @@ let temporalUnits : Parser<Units,unit> =
     ]
 
 
+let pressureUnits : Parser<Units,unit> =
+    spaces >>. choice [
+        pstringCI "mm" .>> spaces .>> pstringCI "Hg" >>%  MMHg
+        pstringCI "mmHg" >>% MMHg
+    ]
+
 
 let unitParser : Parser<Units,unit> =
     choice [
@@ -144,6 +152,7 @@ let unitParser : Parser<Units,unit> =
         volumeUnits      
         weightUnits
         temporalUnits
+        pressureUnits
     ]
 
 let meanOfTuple ((x,y): float * float) = (x + y) / 2.0
@@ -157,17 +166,28 @@ let pRangeIndicators =
         pstring "-"
     ]
     
-    
 
-let pRangeOrFloat = choice [
-    attempt (floatOrInt .>> spaces .>> notFollowedBy (pchar '-'))
-    attempt (floatOrInt .>> spaces .>> (skipMany pRangeIndicators) .>> spaces .>>. floatOrInt |>> meanOfTuple)
-    attempt (floatOrInt .>> spaces .>> skipStringCI "to" .>> spaces .>>. floatOrInt |>> meanOfTuple)
-]
-
-let tempQuantifier : Parser<unit,unit> = 
+let atQuantifier : Parser<unit,unit> = 
     spaces .>> choice [
         
         pstring "@" .>> spaces 
         pstringCI "at" .>> spaces
     ]
+
+let tempPair =
+    temp .>> spaces .>> pchar '/' .>> spaces .>>. temp |>> fun temps -> Pair(temps)
+
+
+let tempOrTempPair =
+    choice [
+        attempt (temp)
+        attempt (tempPair)
+    ]
+
+
+let pRangeOrFloat = choice [
+    attempt (floatOrInt .>> spaces .>> notFollowedBy (pRangeIndicators))
+    attempt (floatOrInt .>> spaces .>> (skipMany pRangeIndicators) .>> spaces .>>. floatOrInt |>> meanOfTuple)
+]
+
+

@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Database.fs" />
     <Content Include="density-list.json" />
     <Content Include="Compounds-CID-list.json" />
     <Content Include="Compound-labled-all-list-repaired.json" />
@@ -15,9 +14,12 @@
     <Compile Include="Pubchem\Data-Sourcing.fs" />
     <Compile Include="Pubchem\ParserTemplate.fs" />
     <Compile Include="Pubchem\DensityParser.fs" />
+    <Compile Include="Pubchem\BoilingPointParser.fs" />
+    <Compile Include="Pubchem\MeltingPointParser.fs" />
     <None Include="pubchem\Data-Sourcing.fsx" />
     <None Include="Pubchem\Testing.fsx" />
     <Compile Include="Pubchem\Pipeline.fs" />
+    <Compile Include="Database.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

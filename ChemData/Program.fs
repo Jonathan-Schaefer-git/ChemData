@@ -1,7 +1,8 @@
 ﻿open Npgsql.FSharp
-open Pubchem
+open DensityParser
 open Newtonsoft.Json
 open DataSourcing
+open ParserTemplate
 
 open System.IO
 
@@ -77,18 +78,13 @@ module Database =
 
 [<EntryPoint>]
 let main _ =
-    let densityData =
-        densityCids
-        |> Array.map (fun cid -> processDensity cid)
-        |> Async.Parallel
-        |> Async.RunSynchronously
-        |> Array.choose (fun x -> x)
-
-
-    printfn $"Parsed {densityData.Length} successfully"
-
-    JsonConvert.SerializeObject(densityData) |> fun data -> File.WriteAllText(Path.Combine(projectRoot,"density-data.json"), data)
-
-
-
+    [
+        parseDensity "0.9950-1.0005"
+        parseDensity "0.9950 to 1.05"
+        parseDensity "0.9950 g/cm^3 at 25 °C"
+        parseDensity "0.9950 g/cm^3 at 25 °C (USG, 1999)"
+        
+    ]
+    |> printfn "%A"
+    
     0
