@@ -4,12 +4,14 @@ open FParsec
 open FSharp.Data
 open DataSourcing
 open DensityParser
-
+open BoilingPointParser
+open MeltingPointParser
+open MeltingPointParser
 
 type Parsing =
     | Density of DensityResult
-
-
+    | BoilingPoint of BoilingPointResult 
+    | MeltingPoint of MeltingPointResult
 // 0.995
 // 0.9950 g/cu cm at 25 °C
 // 0.9950 g/cm^3 at 25 °C
@@ -74,4 +76,26 @@ let extractDensity (record:PubChemJSON.Root) =
     |> getPropertySection "Density"
     |> extractionPipeline densityWrapper
 
-
+let extractBoilingPoint (record:PubChemJSON.Root) =
+    let boilingPointWrapper str =
+        match parseBoilingPoint str with
+        | Some x -> Some (BoilingPoint x)
+        | None -> None
+        
+    getSection "Chemical and Physical Properties" record.Record
+    |> getSubSection "Experimental Properties"
+    |> getPropertySection "Boiling Point"
+    |> extractionPipeline boilingPointWrapper
+       
+let extractMeltingPoint (record:PubChemJSON.Root) =
+    let meltingPointWrapper str =
+        match parseMeltingPoint str with
+        | Some x -> Some (MeltingPoint x)
+        | None -> None
+        
+    getSection "Chemical and Physical Properties" record.Record
+    |> getSubSection "Experimental Properties"
+    |> getPropertySection "Melting Point"
+    |> extractionPipeline meltingPointWrapper
+    
+    

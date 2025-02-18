@@ -6,6 +6,8 @@ open FParsec
 
 type MeltingPointResult = {
     Temperature: Temperature
+    Pressure: float option
+    Unit: Units option
 }
 
 let private meltingPointParser =

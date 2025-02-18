@@ -38,7 +38,7 @@ type Compound = JsonProvider<"../Compound-labled-all-sample.json">
 
 
 
-let compounds = Compound.Load("../Compound-labled-all-list-repaired.json")
+let compounds = Compound.Load("Input/Compound-labeled-all-list-repaired.json")
 let compoundIds = compounds |> Array.map _.Cid
 
 

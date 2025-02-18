@@ -6,8 +6,8 @@ open FSharp.Data
 open JsonRepairUtils
 
 // Type providers for list intermediates and full structure records necessary for parsing
-type CompoundList = JsonProvider<"C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\Compound-labled-all-sample.json">
-type PubChemJSON = JsonProvider<"C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\4.json">
+type CompoundList = JsonProvider<"./Input/Compound-labeled-all-sample.json">
+type PubChemJSON = JsonProvider<"./JSON-FULL/4.json">
 
 
 let basePath = AppDomain.CurrentDomain.BaseDirectory
@@ -16,10 +16,8 @@ let projectRoot = Path.GetFullPath(Path.Combine(basePath, "../../.."))
 let sdfPath = Path.Combine(projectRoot, "SDF")
 let jsonPath = Path.Combine(projectRoot, "JSON-FULL")
 
-printfn "Project root: %s" projectRoot
+printfn $"Project root: {projectRoot}"
 printfn $"SDF Files at: {sdfPath} \n JSON files at: {jsonPath}"
-
-
 
 let json = JsonRepair()
 

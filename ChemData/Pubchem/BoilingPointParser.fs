@@ -2,8 +2,6 @@
 open ParserTemplate
 open FParsec
 
-
-
 type BoilingPointResult = {
     Temperature: Temperature
     Pressure: float option
@@ -32,6 +30,8 @@ let parseBoilingPoint (str:string) : BoilingPointResult option =
     | Failure (msg, _, _) ->
         printfn $"Parse failed for: {str} with: {msg}"
         None
+
+
 
 
 //parseBoilingPoint "415 °F at 760 mmHg (NTP, 1992)"
