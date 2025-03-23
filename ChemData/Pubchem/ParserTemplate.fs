@@ -13,6 +13,8 @@ type Units =
     | Kilogram
     | Gram
     | Milligram
+    | Microgram
+    | Nanogram
     | Kilometer
     | SquareKilometer
     | CubicKilometer
@@ -35,6 +37,11 @@ type Units =
     | Second
     | SecondSquared
     | MMHg
+    | Pascal
+    | HectoPascal
+    | KiloPascal
+    | Bar
+    | Atm
 
 let floatOrInt : Parser<float,unit> =
     pfloat <|> (pint32 |>> float)
@@ -62,6 +69,12 @@ let weightUnits : Parser<Units,unit> =
         pstringCI "kg" >>% Kilogram
         pstringCI "g" >>% Gram
         pstringCI "mg" >>% Milligram
+
+        pstringCI "µg" >>% Microgram
+        pstringCI "ug" >>% Microgram
+        pstringCI "mcg" >>% Microgram
+        
+        pstringCI "ng" >>% Nanogram
     ]
 
 
@@ -142,6 +155,12 @@ let pressureUnits : Parser<Units,unit> =
     spaces >>. choice [
         pstringCI "mm" .>> spaces .>> pstringCI "Hg" >>%  MMHg
         pstringCI "mmHg" >>% MMHg
+
+        pstringCI "Pa" >>% Pascal
+        pstringCI "hPa" >>% HectoPascal
+        pstringCI "kPa" >>% KiloPascal
+        pstringCI "bar" >>% Bar
+        pstringCI "atm" >>% Atm
     ]
 
 

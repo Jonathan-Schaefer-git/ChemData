@@ -11,7 +11,7 @@ type MeltingPointResult = {
 }
 
 let private meltingPointParser =
-    temp |>> fun temp -> { Temperature = temp }
+    temp |>> fun temp -> { Pressure=None; Temperature = temp; Unit=None }
 
 
 let parseMeltingPoint (str:string) : MeltingPointResult option =

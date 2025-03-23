@@ -368,3 +368,8 @@ FodyWeavers.xsd
 /ChemData/Compound-labled-all-list-repaired.json
 /ChemData/JSON-FULL.zip
 /ChemData/SDF.zip
+/ChemData/Input/BoilingPoint-full.json
+/ChemData/Input/MeltingPoint-full.json
+/ChemData/Input/Density-full.json
+/ChemData/Input/DissociationConstants-full.json
+/ChemData/Input/Compound-labeled-all-list-repaired.json

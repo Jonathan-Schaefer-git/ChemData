@@ -6,17 +6,15 @@ open DataSourcing
 open DensityParser
 open BoilingPointParser
 open MeltingPointParser
-open MeltingPointParser
 
 type Parsing =
     | Density of DensityResult
     | BoilingPoint of BoilingPointResult 
     | MeltingPoint of MeltingPointResult
-// 0.995
-// 0.9950 g/cu cm at 25 °C
-// 0.9950 g/cm^3 at 25 °C
-// 1.000 at 277K
-    
+
+
+
+
 let getSection (header:string) (record:PubChemJSON.Record) =
     record.Section
     |> Array.filter(fun secs -> secs.TocHeading = header)
@@ -43,7 +41,7 @@ let getPropertySection (header:string) (subsec:PubChemJSON.Section2 option) =
         None
 
 
-let extractionPipeline (parsingFunc:string -> Parsing option) (sec3:PubChemJSON.Section3 option) = 
+let private extractionPipeline (parsingFunc:string -> Parsing option) (sec3:PubChemJSON.Section3 option) = 
     match sec3 with
     | Some x -> 
         Array.isEmpty x.Information
@@ -99,3 +97,9 @@ let extractMeltingPoint (record:PubChemJSON.Root) =
     |> extractionPipeline meltingPointWrapper
     
     
+let pipeline (cid:int) (parsingFunc:PubChemJSON.Root -> Parsing array option) =
+    async {
+        printfn "Getting %d" cid
+        let! record = PubChemJSON.AsyncLoad($"{projectRoot}/JSON-FULL/{cid}.json")
+        return (cid, parsingFunc record)
+    }

@@ -6,8 +6,8 @@ open FSharp.Data
 open JsonRepairUtils
 
 // Type providers for list intermediates and full structure records necessary for parsing
-type CompoundList = JsonProvider<"./Input/Compound-labeled-all-sample.json">
 type PubChemJSON = JsonProvider<"./JSON-FULL/4.json">
+type CompoundList = JsonProvider<"./Input/Compound-labeled-all-sample.json">
 
 
 let basePath = AppDomain.CurrentDomain.BaseDirectory

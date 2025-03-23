@@ -11,16 +11,28 @@ open JsonRepairUtils
 open System.Net
 open System.Diagnostics
 
-type Compound = JsonProvider<"../Compound-labled-all-sample.json">
+type Compound = JsonProvider<"../Input/Compound-labeled-all-sample.json">
 
 
 
+type CompoundList = JsonProvider<"../Input/PropertyList-sample.json">
+
+let jsonRepair = JsonRepair()
+
+let preparePropertyListToCid (prop:string) =
+    jsonRepair.Repair(File.ReadAllText($"../Input/{prop}-full.json"))
+    |> Compound.Parse
+    |> Array.map _.Cid
+    |> JsonConvert.SerializeObject 
+    |> fun data -> File.WriteAllText($"../Input/{prop}-CID-list.json", data)
+
+preparePropertyListToCid "Density"
+preparePropertyListToCid "BoilingPoint"
+preparePropertyListToCid "MeltingPoint"
+
+//let inpJson = File.ReadAllText("../Input/Compound-labeled-all-list.json")
 
 
-//let inpJson = File.ReadAllText("../Compound-labled-all-list.json")
-
-
-//let jsonRepair = JsonRepair()
 
 //jsonRepair.ThrowExceptions <- true
 
@@ -38,11 +50,11 @@ type Compound = JsonProvider<"../Compound-labled-all-sample.json">
 
 
 
-let compounds = Compound.Load("Input/Compound-labeled-all-list-repaired.json")
+let compounds = Compound.Load("../Input/Compound-labeled-all-list-repaired.json")
 let compoundIds = compounds |> Array.map _.Cid
 
 
-JsonConvert.SerializeObject(compoundIds) |> fun data -> File.WriteAllText("../Compounds-CID-list.json", data)
+JsonConvert.SerializeObject(compoundIds) |> fun data -> File.WriteAllText("../Input/Compounds-CID-list.json", data)
 
 
 [<Literal>]

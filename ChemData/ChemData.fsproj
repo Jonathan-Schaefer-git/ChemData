@@ -14,7 +14,6 @@
     <None Include="pubchem\Data-Sourcing.fsx" />
     <None Include="Pubchem\Testing.fsx" />
     <Compile Include="Pubchem\Pipeline.fs" />
-    <Compile Include="Database.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
