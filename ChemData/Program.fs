@@ -19,6 +19,7 @@ let convertToJSON (data: (int * Parsing array) array) =
         | Some value -> converter value |> box
         | None -> box null
 
+
     let getOptCelsius = 
         handleUnit (
             function
@@ -35,9 +36,9 @@ let convertToJSON (data: (int * Parsing array) array) =
         | Density d ->
             [| box d.Value; getOptCelsius d.Temperature |]
         | BoilingPoint bp ->
-            [| bp.Temperature; getOptPressure bp.Pressure |]
+            [| getOptCelsius (Some bp.Temperature); getOptPressure bp.Pressure |]
         | MeltingPoint mp ->
-            [| mp.Temperature; getOptPressure mp.Pressure |]
+            [| getOptCelsius (Some mp.Temperature); getOptPressure mp.Pressure |]
 
 
 
@@ -96,11 +97,16 @@ let standardizationFactor (unit:Units) =
     | Atm -> 1.01325
     | HectoPascal -> 0.001
     | KiloPascal -> 0.01
+    | Pascal -> 0.00001
     | MMHg -> 0.00133322
 
 
-
-
+let normalizePressure (pressure:float option) (unit:Units option) =
+    match pressure, unit with
+    | Some pressure, Some unit  -> Some (pressure * standardizationFactor unit)
+    | Some pressure, None -> Some (pressure * standardizationFactor MMHg)
+    | None, Some unit -> failwith $"While parsing a unit for pressure was given while no pressure could be parsed"
+    | None, None -> None
 
 let standardize (s:Parsing) =
     match s with
@@ -122,14 +128,19 @@ let standardize (s:Parsing) =
         Density { Value = normalizedValue; Units = Some (Gram, CubicCentimeter); Temperature = standardTemp}
 
     | BoilingPoint b ->
-        
         let normalizedPressure =
-            match b.Pressure with
-            | Some p -> Some (p * standardizationFactor b.Unit)
-            | None -> None
+            match b.Pressure, b.Unit with
+            | Some pressure, Some unit  -> Some (pressure * standardizationFactor unit)
+            | Some pressure, None -> Some (pressure * standardizationFactor MMHg)
+            | None, Some unit -> failwith $"While parsing {b} a unit for pressure was given while no pressure could be parsed"
+            | None, None -> None
 
+        let temp = standardTemp b.Temperature
+        BoilingPoint { Temperature = temp; Pressure = normalizedPressure; Unit = Some Bar; }
 
-        BoilingPoint { Temperature = standardTemp b.Temperature; Pressure = b.Pressure }
+    | MeltingPoint m ->
+        MeltingPoint { Temperature = standardTemp m.Temperature; Pressure = normalizePressure m.Pressure m.Unit; Unit = Some Bar}
+
     | _ -> failwith "Not implemented"
 
 
@@ -139,26 +150,32 @@ let standardize (s:Parsing) =
 [<EntryPoint>]
 let main _ =
     
-    let densityCompounds = CidList.Load($"{projectRoot}/Input/Density-CID-list.json")
-    
-    
-    let verifiedCompounds = densityCompounds |> Array.choose checkExistence
+    let densityCompounds = CidList.Load($"{projectRoot}/Input/Density-CID-list.json") |> Array.choose checkExistence
+    let boilingCompounds = CidList.Load($"{projectRoot}/Input/BoilingPoint-CID-list.json") |> Array.choose checkExistence
+    let meltingCompounds = CidList.Load($"{projectRoot}/Input/MeltingPoint-CID-list.json") |> Array.choose checkExistence
 
 
 
 
-    verifiedCompounds
-    |> Array.map(fun cid -> pipeline cid extractDensity)
-    |> Async.Parallel
-    |> Async.RunSynchronously
-    |> Array.choose(fun (cid, data) -> 
-        match data with
-        | Some someData -> Some (cid, someData)
-        | None -> None
-    )
-    |> Array.map(fun (cid, data) -> 
-        (cid, data |> Array.map(fun x -> standardize x))
-    )
-    |> convertToJSON
-    |> fun json -> File.WriteAllText($"{projectRoot}/Output/standardized.json", json)
+
+    let processCompounds (compounds:int array) (extractor:PubChemJSON.Root -> Parsing array option) (name:string) =
+        compounds
+        |> Array.map(fun cid -> pipeline cid extractor)
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> Array.choose(fun (cid, data) -> 
+            match data with
+            | Some someData -> Some (cid, someData)
+            | None -> None
+        )
+        |> Array.map(fun (cid, data) -> 
+            (cid, data |> Array.map(fun x -> standardize x))
+        )
+        |> convertToJSON
+        |> fun json -> File.WriteAllText($"{projectRoot}/Output/{name}-standardized.json", json)
+     
+    processCompounds densityCompounds extractDensity "Density"
+    processCompounds boilingCompounds extractBoilingPoint "BoilingPoint"
+    processCompounds meltingCompounds extractMeltingPoint "MeltingPoint"
+
     0

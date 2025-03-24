@@ -23,7 +23,7 @@ let private densityParser =
 let parseDensity (str:string) : DensityResult option =
     match run densityParser str with
     | Success (data, _, _) ->
-        if data.Value <> 0.0 then Some data else None
+        if data.Value <> 0.0 || data.Value = infinity then Some data else None
     | Failure (msg, _, _) ->
         printfn $"Parse failed for: {str} with: {msg}"
         None
