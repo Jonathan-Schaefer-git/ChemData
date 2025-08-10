@@ -6,35 +6,35 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Pubchem\Data-Sourcing.fs" />
-    <Compile Include="Pubchem\ParserTemplate.fs" />
-    <Compile Include="Pubchem\DensityParser.fs" />
-    <Compile Include="Pubchem\BoilingPointParser.fs" />
-    <Compile Include="Pubchem\MeltingPointParser.fs" />
-    <None Include="pubchem\Data-Sourcing.fsx" />
-    <None Include="Pubchem\Testing.fsx" />
-    <Compile Include="Pubchem\Pipeline.fs" />
+    <Compile Include="Pubchem/Data-Sourcing.fs" />
+    <Compile Include="Pubchem/ParserTemplate.fs" />
+    <Compile Include="Pubchem/DensityParser.fs" />
+    <Compile Include="Pubchem/BoilingPointParser.fs" />
+    <Compile Include="Pubchem/MeltingPointParser.fs" />
+    <None Include="pubchem/Data-Sourcing.fsx" />
+    <None Include="Pubchem/Testing.fsx" />
+    <Compile Include="Pubchem/Pipeline.fs" />
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Input/Compound-labeled-all-sample.json" />
+    <Content Include="JSON-FULL/4.json" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
     <PackageReference Include="FSharp.Data" Version="6.4.1" />
-    <PackageReference Include="FSharp.Data.Npgsql" Version="2.1.0" />
     <PackageReference Include="FSharp.Stats" Version="0.6.0" />
     <PackageReference Include="JsonRepairUtils" Version="0.0.2" />
-    <PackageReference Include="NCDK" Version="1.6.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Npgsql" Version="9.0.2" />
-    <PackageReference Include="Npgsql.FSharp" Version="8.0.0" />
-    <PackageReference Include="SQLProvider" Version="1.4.8" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="JSON-FULL\" />
-    <Folder Include="Input\" />
-    <Folder Include="Output\" />
-    <Folder Include="SDF\" />
+    <Folder Include="JSON-FULL/" />
+    <Folder Include="Input/" />
+    <Folder Include="Pubchem\DensityParserut/" />
+    <Folder Include="SDF/" />
   </ItemGroup>
 
   <ItemGroup>

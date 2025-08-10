@@ -20,16 +20,28 @@ type CompoundList = JsonProvider<"../Input/PropertyList-sample.json">
 let jsonRepair = JsonRepair()
 
 let preparePropertyListToCid (prop:string) =
-    jsonRepair.Repair(File.ReadAllText($"../Input/{prop}-full.json"))
+    jsonRepair.Repair(File.ReadAllText($"ChemData/Input/{prop}-full.json"))
     |> Compound.Parse
-    |> Array.map _.Cid
+    |> Array.map (fun x -> x.Cid, x.Smiles)
     |> JsonConvert.SerializeObject 
-    |> fun data -> File.WriteAllText($"../Input/{prop}-CID-list.json", data)
+    |> fun data -> File.WriteAllText($"ChemData/Input/{prop}-CID-list.json", data)
 
 preparePropertyListToCid "Density"
 preparePropertyListToCid "BoilingPoint"
 preparePropertyListToCid "MeltingPoint"
-
+preparePropertyListToCid "Solubility"
+preparePropertyListToCid "RefractiveIndex"
+preparePropertyListToCid "pH"
+preparePropertyListToCid "KovatRetention"
+preparePropertyListToCid "LogP"
+preparePropertyListToCid "HeatOfVaporization"
+preparePropertyListToCid "HeatOfCombustion"
+preparePropertyListToCid "FlashPoint"
+preparePropertyListToCid "Dissociation"
+preparePropertyListToCid "CollisionCrossSection"
+preparePropertyListToCid "VaporPressure"
+preparePropertyListToCid "VaporDensity"
+preparePropertyListToCid "Viscosity"
 //let inpJson = File.ReadAllText("../Input/Compound-labeled-all-list.json")
 
 

@@ -361,6 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
 /ChemData/Compound-labled-all-list.json
 /ChemData/Compound-labled-all-sample.json
 /ChemData/JSON-FULL
@@ -369,7 +370,14 @@ FodyWeavers.xsd
 /ChemData/JSON-FULL.zip
 /ChemData/SDF.zip
 /ChemData/Input/BoilingPoint-full.json
+/ChemData/Input/*.json
 /ChemData/Input/MeltingPoint-full.json
 /ChemData/Input/Density-full.json
 /ChemData/Input/DissociationConstants-full.json
 /ChemData/Input/Compound-labeled-all-list-repaired.json
+ChemData/Input/BoilingPoint-CID-list.json
+ChemData/Input/BoilingPoint-CID-list.json
+ChemData/Input/Compound-labeled-all-sample.json
+ChemData/Input/Compounds-CID-list.json
+ChemData/Input/*.json
+ChemData/Input/PropertyList-sample.json
