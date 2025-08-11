@@ -17,7 +17,6 @@ type Units =
     | Nanogram
     | Kilometer
     | SquareKilometer
-    | CubicKilometer
     | Meter
     | SquareMeter
     | CubicMeter

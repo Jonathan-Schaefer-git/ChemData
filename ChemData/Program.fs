@@ -5,6 +5,7 @@ open ParserTemplate
 open Pipeline
 open System.IO
 open FSharp.Data
+open System.Threading
 
 type CidList = JsonProvider<"./Input/Density-CID-list.json">
 
@@ -20,8 +21,6 @@ let convertToJSON (data: (int * string * Parsing array) array) =
         match valueOpt with
         | Some value -> converter value |> box
         | None -> box null
-
-
 
 
     let getOptCelsius =
@@ -93,6 +92,16 @@ let standardizationFactor (unit: Units) =
     | KiloPascal -> 0.01
     | Pascal -> 0.00001
     | MMHg -> 0.00133322
+    // Length
+    | Millimeter -> 0.1
+    | Centimeter -> 1.0
+    | Decimeter -> 10.0
+    | Meter -> 100.0
+    | Kilometer -> 100000.0
+    // Time
+    | Second -> 1.0
+    | SecondSquared -> 1.0
+
 
 
 let normalizePressure (pressure: float option) (unit: Units option) =
@@ -146,7 +155,6 @@ let standardize (s: Parsing) =
               Pressure = normalizePressure m.Pressure m.Unit
               Unit = Some Bar }
 
-    | _ -> failwith "Not implemented"
 
 
 
@@ -157,30 +165,51 @@ let main _ =
 
     let featurizer = [
         "Density", extractDensity
-        "BoilingPoint", extractBoilingPoint
-        "MeltingPoint", extractMeltingPoint
+        //"BoilingPoint", extractBoilingPoint
+        //"MeltingPoint", extractMeltingPoint
     ]
 
     let loadCompounds (comp:string) = 
-        CidList.Load $"{projectRoot}/Input/{comp}-CID-list.json"
-        |> Array.map (fun x -> x.Item1, x.Item2.String)
-        |> Array.choose (fun (cid, smiles) -> 
-            match checkExistence cid, smiles with
-            | Some id, Some smiles -> Some (id, smiles)
-            | _ -> None)
+        let compounds =
+            CidList.Load $"{projectRoot}/Input/{comp}-CID-list.json"
+            |> Array.map (fun x -> x.Item1, x.Item2.String)
+            |> Array.map (fun (cid, smiles) -> 
+                match checkExistence cid, smiles with
+                | Some id, Some smiles -> Some (id, smiles)
+                | _ -> None)
 
+        let dataYieldOfLoad =
+            float (compounds |> Array.sumBy (fun x-> if x.IsSome then 1 else 0)) / float compounds.Length
 
+        printfn $"Loading {comp} succeeded with a yield rate of {dataYieldOfLoad}"
+
+        Thread.Sleep(5000)
+
+        compounds |> Array.choose (fun x -> if x.IsSome then x else None)
+        
 
     let processCompounds (compounds: (int * string) array) (extractor: PubChemJSON.Root -> Parsing array option) (name: string) =
-        compounds
-        |> Array.map (fun (cid, smiles) -> pipeline cid smiles extractor)
-        |> Async.Parallel
-        |> Async.RunSynchronously
-        |> Array.choose (fun (cid, smiles, data) ->
-            match data with
-            | Some someData when someData.Length > 0 -> Some(cid, smiles, someData)
-            | _ -> None)
-        |> Array.map (fun (cid, smiles, data) -> cid, smiles, data |> Array.map (fun x -> standardize x))
+        let parsedData =
+            compounds
+            |> Array.map (fun (cid, smiles) -> pipeline cid smiles extractor)
+            |> Async.Parallel
+            |> Async.RunSynchronously
+            |> Array.map (fun (cid, smiles, data) ->
+                match data with
+                | Some someData when someData.Length > 0 -> Some(cid, smiles, someData)
+                | _ -> None)
+        
+        let dataYield = 
+            float (parsedData |> Array.sumBy (fun x -> if x.IsSome then 1 else 0)) / float parsedData.Length
+
+        printfn $"Parsing yielded {dataYield} of all valid molecules"        
+
+        let preparedData =
+            parsedData
+            |> Array.choose (fun x -> if x.IsSome then x else None)
+            |> Array.map (fun (cid, smiles, data) -> cid, smiles, data |> Array.map (fun x -> standardize x))
+        
+        preparedData
         |> convertToJSON
         |> fun json -> File.WriteAllText($"{projectRoot}/Output/{name}-standardized.json", json)
 
