@@ -4,12 +4,13 @@ open DataSourcing
 open DensityParser
 open BoilingPointParser
 open MeltingPointParser
+open RefractiveIndexParser
 
 type Parsing =
     | Density of DensityResult
     | BoilingPoint of BoilingPointResult
     | MeltingPoint of MeltingPointResult
-
+    | RefractiveIndex of RefractiveIndexResult
 
 let getSection (header: string) (record: PubChemJSON.Record) =
     record.Section
@@ -58,13 +59,16 @@ let private extractionPipeline (parsingFunc: string -> Parsing option) (sec4: Pu
 
 
 
+let extractRefractiveIndex (record: PubChemJSON.Root) =
+    let refractiveIndexWrapper str =
+        match parseRefractiveIndex str with
+        | Some x -> Some(RefractiveIndex x)
+        | None -> None
 
-let extractSmiles (record: PubChemJSON.Root) =
-    record.Record
-    |> getSection "Names and Identifiers"
-    |> getSubSection "Computed Descriptors"
-    |> getPropertySection "SMILES"
-
+    getSection "Chemical and Physical Properties" record.Record
+    |> getSubSection "Experimental Properties"
+    |> getPropertySection "Refractive Index"
+    |> extractionPipeline refractiveIndexWrapper
 
 
 let extractDensity (record: PubChemJSON.Root) =

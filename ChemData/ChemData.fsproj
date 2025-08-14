@@ -10,7 +10,7 @@
     <Compile Include="Pubchem/ParserTemplate.fs" />
     <Compile Include="Pubchem/DensityParser.fs" />
     <Compile Include="Pubchem/BoilingPointParser.fs" />
-    <Compile Include="Pubchem/MeltingPointParser.fs" /><Compile Include="Pubchem/RefractiveIndex.fs" /><Compile Include="Pubchem/VaporPressure.fs" /><Compile Include="Pubchem/VaporDensity.fs" /><Compile Include="Pubchem/Viscosity.fs" />
+    <Compile Include="Pubchem/MeltingPointParser.fs" /><Compile Include="Pubchem/RefractiveIndexParser.fs" /><Compile Include="Pubchem/VaporPressure.fs" /><Compile Include="Pubchem/VaporDensity.fs" /><Compile Include="Pubchem/Viscosity.fs" />
     <None Include="pubchem/Data-Sourcing.fsx" />
     <None Include="Pubchem/Testing.fsx" />
     <Compile Include="Pubchem/Pipeline.fs" />

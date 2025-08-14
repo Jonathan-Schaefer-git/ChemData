@@ -4,6 +4,7 @@ open DataSourcing
 open ParserTemplate
 open BoilingPointParser
 open MeltingPointParser
+open RefractiveIndexParser
 open Pipeline
 open System.IO
 open FSharp.Data
@@ -43,7 +44,7 @@ let convertToJSON (data: (int * string * Parsing array) array) =
         | Density d -> [| box d.Value; getOptCelsius d.Temperature |]
         | BoilingPoint bp -> [| getOptCelsius (Some bp.Temperature); getOptPressure bp.Pressure |]
         | MeltingPoint mp -> [| getOptCelsius (Some mp.Temperature); getOptPressure mp.Pressure |]
-        | 
+        | RefractiveIndex ri -> [| box ri.Value |]
 
 
 
@@ -160,6 +161,8 @@ let standardize (s: Parsing) =
               Pressure = normalizePressure m.Pressure m.Unit
               Unit = Some Bar }
 
+    | RefractiveIndex ri ->
+        RefractiveIndex ri
 
 
 
@@ -169,10 +172,10 @@ let standardize (s: Parsing) =
 let main _ =
 
     let featurizer = [
-        "Density", extractDensity
-        "BoilingPoint", extractBoilingPoint
-        "MeltingPoint", extractMeltingPoint
-        "RefractiveIndex", 
+        // "Density", extractDensity
+        // "BoilingPoint", extractBoilingPoint
+        // "MeltingPoint", extractMeltingPoint
+        // "RefractiveIndex", extractRefractiveIndex
     ]
 
     let loadCompounds (comp:string) = 
@@ -230,8 +233,7 @@ let main _ =
     )
 
     // [
-    //     "159.46 °C @ 760 MM HG"
-    //     "112-117 °C at 0.33 kPa"
-    //     "642.9±55.0"
-    // ] |> List.map (fun x -> x |> parseBoilingPoint |> printfn "%A") |> ignore
+    //     "Index of refraction 1.4738 @ 25 °C/D"
+    //     "Index of refraction: 1.4061 at 25 °C"
+    // ] |> List.map (fun x -> x |> parseRefractiveIndex |> printfn "%A") |> ignore
     0
