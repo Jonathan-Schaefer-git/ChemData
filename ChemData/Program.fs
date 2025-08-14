@@ -2,6 +2,8 @@
 open Newtonsoft.Json
 open DataSourcing
 open ParserTemplate
+open BoilingPointParser
+open MeltingPointParser
 open Pipeline
 open System.IO
 open FSharp.Data
@@ -20,25 +22,28 @@ let convertToJSON (data: (int * string * Parsing array) array) =
     let handleUnit (converter: 'T -> float) (valueOpt: 'T option) =
         match valueOpt with
         | Some value -> converter value |> box
-        | None -> box null
+        | None -> box None
 
 
     let getOptCelsius =
         handleUnit (function
             | Celsius cel -> cel
+            | Pair (Celsius temp1, Celsius temp2) -> (temp1, temp2) |> meanOfTuple
             | _ -> failwith "Unexpected unit, earlier conversion failed")
 
     let getOptPressure =
         function
         | Some x -> x |> box
-        | None -> box null
+        | None -> box None
+
+
 
     let parseValue =
         function
         | Density d -> [| box d.Value; getOptCelsius d.Temperature |]
         | BoilingPoint bp -> [| getOptCelsius (Some bp.Temperature); getOptPressure bp.Pressure |]
         | MeltingPoint mp -> [| getOptCelsius (Some mp.Temperature); getOptPressure mp.Pressure |]
-
+        | 
 
 
 
@@ -158,15 +163,16 @@ let standardize (s: Parsing) =
 
 
 
-
+ // 175 °C @ 1 mm Hg
 
 [<EntryPoint>]
 let main _ =
 
     let featurizer = [
         "Density", extractDensity
-        //"BoilingPoint", extractBoilingPoint
-        //"MeltingPoint", extractMeltingPoint
+        "BoilingPoint", extractBoilingPoint
+        "MeltingPoint", extractMeltingPoint
+        "RefractiveIndex", 
     ]
 
     let loadCompounds (comp:string) = 
@@ -213,6 +219,9 @@ let main _ =
         |> convertToJSON
         |> fun json -> File.WriteAllText($"{projectRoot}/Output/{name}-standardized.json", json)
 
+        printfn $"{preparedData.Length}"
+
+
 
     featurizer
     |> List.iter (fun (feature, extractor) ->
@@ -220,5 +229,9 @@ let main _ =
         processCompounds compounds extractor feature
     )
 
-
+    // [
+    //     "159.46 °C @ 760 MM HG"
+    //     "112-117 °C at 0.33 kPa"
+    //     "642.9±55.0"
+    // ] |> List.map (fun x -> x |> parseBoilingPoint |> printfn "%A") |> ignore
     0

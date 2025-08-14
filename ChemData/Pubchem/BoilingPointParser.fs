@@ -10,7 +10,7 @@ type BoilingPointResult = {
 
 
 let private boilingPointParser =
-    temp .>>. opt (spaces >>. atQuantifier >>. spaces >>. pRangeOrFloat .>> spaces .>>. pressureUnits) |>> fun (temp, (pressure)) ->
+    tempOrTempPair .>>. opt (spaces >>. atQuantifier >>. spaces >>. pRangeOrFloat .>> spaces .>>. pressureUnits) |>> fun (temp, (pressure)) ->
         match pressure with
         | Some (pressure, pressureUnit) -> 
             { Temperature = temp
@@ -28,10 +28,10 @@ let parseBoilingPoint (str:string) : BoilingPointResult option =
     | Success (data, _, _) ->
         Some data
     | Failure (msg, _, _) ->
-        printfn $"Parse failed for: {str} with: {msg}"
+        printfn $"Parse failed for: {str} with: "
         None
 
-
+// 
 
 
 //parseBoilingPoint "415 °F at 760 mmHg (NTP, 1992)"
