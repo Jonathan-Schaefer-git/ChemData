@@ -5,12 +5,15 @@ open DensityParser
 open BoilingPointParser
 open MeltingPointParser
 open RefractiveIndexParser
+open ViscosityParser
+
 
 type Parsing =
     | Density of DensityResult
     | BoilingPoint of BoilingPointResult
     | MeltingPoint of MeltingPointResult
     | RefractiveIndex of RefractiveIndexResult
+    | Viscosity of ViscosityResult
 
 let getSection (header: string) (record: PubChemJSON.Record) =
     record.Section
@@ -57,6 +60,16 @@ let private extractionPipeline (parsingFunc: string -> Parsing option) (sec4: Pu
                 |> Some
     | None -> None
 
+let extractViscosity (record: PubChemJSON.Root) =
+    let viscosityWrapper str =
+        match parseViscosity str with
+        | Some v -> Some(Viscosity v)
+        | None -> None
+
+    getSection "Chemical and Physical Properties" record.Record
+    |> getSubSection "Experimental Properties"
+    |> getPropertySection "Viscosity"
+    |> extractionPipeline viscosityWrapper
 
 
 let extractRefractiveIndex (record: PubChemJSON.Root) =

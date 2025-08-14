@@ -37,10 +37,17 @@ type Units =
     | SecondSquared
     | MMHg
     | Pascal
+    | MilliPascal
     | HectoPascal
     | KiloPascal
     | Bar
     | Atm
+    | Poise
+    | CentiPoise
+    | CentiStoke
+
+let divBy : Parser<unit,unit> =
+    spaces >>. pchar '/' >>. spaces
 
 let floatOrInt : Parser<float,unit> =
     pfloat <|> (pint32 |>> float)
@@ -86,6 +93,13 @@ let distanceUnits : Parser<Units,unit> =
         pstring "mm" >>% Millimeter
     ])
 
+let squareMillimeter =
+    attempt (choice [
+        pstringCI "mm²" >>% SquareMillimeter
+        pstringCI "mm2" >>% SquareMillimeter
+        pstringCI "mm^2" >>% SquareMillimeter
+    ])
+
 let areaUnits : Parser<Units,unit> =
     spaces >>. attempt (choice [
         // Metric area
@@ -101,9 +115,7 @@ let areaUnits : Parser<Units,unit> =
         pstringCI "cm2" >>% SquareCentimeter
         pstringCI "cm^2" >>% SquareCentimeter
 
-        pstringCI "mm²" >>% SquareMillimeter
-        pstringCI "mm2" >>% SquareMillimeter
-        pstringCI "mm^2" >>% SquareMillimeter
+        squareMillimeter
     ])
 
 let volumeUnits : Parser<Units,unit> =
@@ -138,11 +150,14 @@ let volumeUnits : Parser<Units,unit> =
     ])
 
 
+let second =
+    spaces >>. pstringCI "s"
+
 let temporalUnits : Parser<Units,unit> =
     spaces >>. attempt (choice [
 
         // Seconds
-        pstringCI "s" >>% Second
+        second >>% Second
 
         pstringCI "s^2" >>% SecondSquared
         pstringCI "s2" >>% SecondSquared

@@ -5,6 +5,7 @@ open ParserTemplate
 open BoilingPointParser
 open MeltingPointParser
 open RefractiveIndexParser
+open ViscosityParser
 open Pipeline
 open System.IO
 open FSharp.Data
@@ -44,8 +45,8 @@ let convertToJSON (data: (int * string * Parsing array) array) =
         | Density d -> [| box d.Value; getOptCelsius d.Temperature |]
         | BoilingPoint bp -> [| getOptCelsius (Some bp.Temperature); getOptPressure bp.Pressure |]
         | MeltingPoint mp -> [| getOptCelsius (Some mp.Temperature); getOptPressure mp.Pressure |]
-        | RefractiveIndex ri -> [| box ri.Value |]
-
+        | RefractiveIndex ri -> [| box ri.Value, getOptCelsius ri.Temperature |]
+        | Viscosity v -> [| box v.Value, getOptCelsius v.Temperature |]
 
 
     let jsonObject =
@@ -66,6 +67,11 @@ let rec standardTemp (temp: Temperature) : Temperature =
     | Fahrenheit x -> Celsius((x - 32.0) * 5.0 / 9.0)
     | Pair(x, y) -> Pair(standardTemp x, standardTemp y)
 
+
+let standardTempOpt (temp: Temperature option) =
+    match temp with
+    | Some t -> Some (standardTemp t)
+    | None -> None
 
 let standardizationFactor (unit: Units) =
     match unit with
@@ -114,17 +120,12 @@ let normalizePressure (pressure: float option) (unit: Units option) =
     match pressure, unit with
     | Some pressure, Some unit -> Some(pressure * standardizationFactor unit)
     | Some pressure, None -> Some(pressure * standardizationFactor MMHg)
-    | None, Some unit -> failwith $"While parsing a unit for pressure was given while no pressure could be parsed"
+    | None, Some unit -> failwith $"While parsing {unit} unit for pressure was given while no pressure could be parsed"
     | None, None -> None
 
 let standardize (s: Parsing) =
     match s with
     | Density d ->
-        let standardTemp =
-            match d.Temperature with
-            | Some t -> Some(standardTemp t)
-            | None -> None
-
 
         let normalizedValue =
             match d.Units with
@@ -137,22 +138,12 @@ let standardize (s: Parsing) =
         Density
             { Value = normalizedValue
               Units = Some(Gram, CubicCentimeter)
-              Temperature = standardTemp }
+              Temperature = standardTempOpt d.Temperature }
 
     | BoilingPoint b ->
-        let normalizedPressure =
-            match b.Pressure, b.Unit with
-            | Some pressure, Some unit -> Some(pressure * standardizationFactor unit)
-            | Some pressure, None -> Some(pressure * standardizationFactor MMHg)
-            | None, Some unit ->
-                failwith $"While parsing {b} a unit for pressure was given while no pressure could be parsed"
-            | None, None -> None
-
-        let temp = standardTemp b.Temperature
-
         BoilingPoint
-            { Temperature = temp
-              Pressure = normalizedPressure
+            { Temperature = standardTemp b.Temperature
+              Pressure = normalizePressure b.Pressure b.Unit
               Unit = Some Bar }
 
     | MeltingPoint m ->
@@ -162,8 +153,10 @@ let standardize (s: Parsing) =
               Unit = Some Bar }
 
     | RefractiveIndex ri ->
-        RefractiveIndex ri
+        RefractiveIndex { Value = ri.Value; Temperature = standardTempOpt ri.Temperature}
 
+    | Viscosity v ->
+        Viscosity { Value = v.Value; Temperature = standardTempOpt v.Temperature}
 
 
  // 175 °C @ 1 mm Hg
@@ -176,6 +169,7 @@ let main _ =
         // "BoilingPoint", extractBoilingPoint
         // "MeltingPoint", extractMeltingPoint
         // "RefractiveIndex", extractRefractiveIndex
+        "Viscosity", extractViscosity
     ]
 
     let loadCompounds (comp:string) = 
