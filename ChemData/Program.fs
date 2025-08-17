@@ -46,9 +46,9 @@ let convertToJSON (data: (int * string * Parsing array) array) =
         | Density d -> [| box d.Value; getOptCelsius d.Temperature |]
         | BoilingPoint bp -> [| getOptCelsius (Some bp.Temperature); getOptPressure bp.Pressure |]
         | MeltingPoint mp -> [| getOptCelsius (Some mp.Temperature); getOptPressure mp.Pressure |]
-        | RefractiveIndex ri -> [| box ri.Value, getOptCelsius ri.Temperature |]
-        | Viscosity v -> [| box v.Value, getOptCelsius v.Temperature |]
-        | KovatsRetention kr -> [| box kr.ColumnType, box kr.RI |]
+        | RefractiveIndex ri -> [| box ri.Value; getOptCelsius ri.Temperature |]
+        | Viscosity v -> [| box v.Value; getOptCelsius v.Temperature |]
+        | KovatsRetention kr -> [| box (kr.ColumnType.ToString()); box kr.RI |]
 
     let jsonObject =
         data
@@ -163,8 +163,6 @@ let standardize (s: Parsing) =
         KovatsRetention ri
 
 
- // 175 °C @ 1 mm Hg
-
 [<EntryPoint>]
 let main _ =
 
@@ -173,7 +171,7 @@ let main _ =
         // "BoilingPoint", extractBoilingPoint
         // "MeltingPoint", extractMeltingPoint
         // "RefractiveIndex", extractRefractiveIndex
-        //"Viscosity", extractViscosity
+        // "Viscosity", extractViscosity
         "KovatRetention", extractKovatsRetention
     ]
 

@@ -82,16 +82,19 @@ let extractKovatsRetention (record: PubChemJSON.Root) =
     |> getPropertySection "Kovats Retention Index"
     |> function
         | Some sec3 -> 
-            sec3.Information 
-            |> Array.map (fun x -> x.Name.Value, (x.Value.Number |> Array.map float))
-            |> Array.choose (fun (columnType, values) -> 
-                match identifyColumnType columnType with
-                | Some cT ->  
-                    Some (KovatsRetention { ColumnType = cT; RI = values})
-                | None -> None
-                    // failwith $"Couldnt match column type string {columnType} with data {values}"
-                )
-            |> Some
+            if sec3.Information.Length = 0 then
+                None
+            else
+                sec3.Information 
+                |> Array.map (fun x -> x.Name.Value, (x.Value.Number |> Array.map float))
+                |> Array.choose (fun (columnType, values) -> 
+                    match identifyColumnType columnType with
+                    | Some cT ->  
+                        Some (KovatsRetention { ColumnType = cT; RI = values})
+                    | None -> None
+                        // failwith $"Couldnt match column type string {columnType} with data {values}"
+                    )
+                |> Some
         | None -> failwith "Nothing here"
 
 

@@ -362,6 +362,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
+.vscode
+
 /ChemData/Compound-labled-all-list.json
 /ChemData/Compound-labled-all-sample.json
 /ChemData/JSON-FULL
