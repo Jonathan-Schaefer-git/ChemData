@@ -11,16 +11,15 @@ open Pipeline
 open System.IO
 open FSharp.Data
 open System.Threading
-
+open System.Collections.Generic
 type CidList = JsonProvider<"./Input/Density-CID-list.json">
 
 
 type RowData = {
     Cid:int
     Smiles:string
-    Labels:objnull array array
+    Labels:IDictionary<string,objnull> array
 }
-
 let convertToJSON (data: (int * string * Parsing array) array) =
     let handleUnit (converter: 'T -> float) (valueOpt: 'T option) =
         match valueOpt with
@@ -38,17 +37,24 @@ let convertToJSON (data: (int * string * Parsing array) array) =
         function
         | Some x -> x |> box
         | None -> box None
+ 
 
 
 
-    let parseValue =
-        function
-        | Density d -> [| box d.Value; getOptCelsius d.Temperature |]
-        | BoilingPoint bp -> [| getOptCelsius (Some bp.Temperature); getOptPressure bp.Pressure |]
-        | MeltingPoint mp -> [| getOptCelsius (Some mp.Temperature); getOptPressure mp.Pressure |]
-        | RefractiveIndex ri -> [| box ri.Value; getOptCelsius ri.Temperature |]
-        | Viscosity v -> [| box v.Value; getOptCelsius v.Temperature |]
-        | KovatsRetention kr -> [| box (kr.ColumnType.ToString()); box kr.RI |]
+    let parseValue = function
+        | Density d  ->
+            dict [ "Density", box d.Value; "Temp", box (getOptCelsius d.Temperature) ]
+        | BoilingPoint bp ->
+            dict [ "BoilingPoint", box (getOptCelsius (Some bp.Temperature)); "Pressure", box (getOptPressure bp.Pressure) ]
+        | MeltingPoint mp ->
+            dict [ "MeltingPoint", box (getOptCelsius (Some mp.Temperature)); "Pressure", box (getOptPressure mp.Pressure) ]
+        | RefractiveIndex ri ->
+            dict [ "RefractiveIndex", box ri.Value; "Temp", box (getOptCelsius ri.Temperature) ]
+        | Viscosity v ->
+            dict [ "Viscosity", box v.Value; "Temp", box (getOptCelsius v.Temperature) ]
+        | KovatsRetention kr ->
+            dict [ "KovatsRetention", box kr.RI; "ColumnType", box (kr.ColumnType.ToString()) ]
+
 
     let jsonObject =
         data
@@ -167,11 +173,11 @@ let standardize (s: Parsing) =
 let main _ =
 
     let featurizer = [
-        // "Density", extractDensity
-        // "BoilingPoint", extractBoilingPoint
-        // "MeltingPoint", extractMeltingPoint
-        // "RefractiveIndex", extractRefractiveIndex
-        // "Viscosity", extractViscosity
+        "Density", extractDensity
+        "BoilingPoint", extractBoilingPoint
+        "MeltingPoint", extractMeltingPoint
+        "RefractiveIndex", extractRefractiveIndex
+        "Viscosity", extractViscosity
         "KovatRetention", extractKovatsRetention
     ]
 
