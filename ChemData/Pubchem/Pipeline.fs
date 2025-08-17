@@ -6,7 +6,7 @@ open BoilingPointParser
 open MeltingPointParser
 open RefractiveIndexParser
 open ViscosityParser
-
+open KovatsRetentionParser
 
 type Parsing =
     | Density of DensityResult
@@ -14,6 +14,7 @@ type Parsing =
     | MeltingPoint of MeltingPointResult
     | RefractiveIndex of RefractiveIndexResult
     | Viscosity of ViscosityResult
+    | KovatsRetention of KovatsRetentionResult
 
 let getSection (header: string) (record: PubChemJSON.Record) =
     record.Section
@@ -60,6 +61,9 @@ let private extractionPipeline (parsingFunc: string -> Parsing option) (sec4: Pu
                 |> Some
     | None -> None
 
+
+
+
 let extractViscosity (record: PubChemJSON.Root) =
     let viscosityWrapper str =
         match parseViscosity str with
@@ -70,6 +74,25 @@ let extractViscosity (record: PubChemJSON.Root) =
     |> getSubSection "Experimental Properties"
     |> getPropertySection "Viscosity"
     |> extractionPipeline viscosityWrapper
+
+
+let extractKovatsRetention (record: PubChemJSON.Root) =
+    getSection "Chemical and Physical Properties" record.Record
+    |> getSubSection "Experimental Properties"
+    |> getPropertySection "Kovats Retention Index"
+    |> function
+        | Some sec3 -> 
+            sec3.Information 
+            |> Array.map (fun x -> x.Name.Value, (x.Value.Number |> Array.map float))
+            |> Array.choose (fun (columnType, values) -> 
+                match identifyColumnType columnType with
+                | Some cT ->  
+                    Some (KovatsRetention { ColumnType = cT; RI = values})
+                | None -> None
+                    // failwith $"Couldnt match column type string {columnType} with data {values}"
+                )
+            |> Some
+        | None -> failwith "Nothing here"
 
 
 let extractRefractiveIndex (record: PubChemJSON.Root) =

@@ -6,6 +6,7 @@ open BoilingPointParser
 open MeltingPointParser
 open RefractiveIndexParser
 open ViscosityParser
+open KovatsRetentionParser
 open Pipeline
 open System.IO
 open FSharp.Data
@@ -47,7 +48,7 @@ let convertToJSON (data: (int * string * Parsing array) array) =
         | MeltingPoint mp -> [| getOptCelsius (Some mp.Temperature); getOptPressure mp.Pressure |]
         | RefractiveIndex ri -> [| box ri.Value, getOptCelsius ri.Temperature |]
         | Viscosity v -> [| box v.Value, getOptCelsius v.Temperature |]
-
+        | KovatsRetention kr -> [| box kr.ColumnType, box kr.RI |]
 
     let jsonObject =
         data
@@ -158,6 +159,9 @@ let standardize (s: Parsing) =
     | Viscosity v ->
         Viscosity { Value = v.Value; Temperature = standardTempOpt v.Temperature}
 
+    | KovatsRetention ri ->
+        KovatsRetention ri
+
 
  // 175 °C @ 1 mm Hg
 
@@ -169,7 +173,8 @@ let main _ =
         // "BoilingPoint", extractBoilingPoint
         // "MeltingPoint", extractMeltingPoint
         // "RefractiveIndex", extractRefractiveIndex
-        "Viscosity", extractViscosity
+        //"Viscosity", extractViscosity
+        "KovatRetention", extractKovatsRetention
     ]
 
     let loadCompounds (comp:string) = 
@@ -181,10 +186,10 @@ let main _ =
                 | Some id, Some smiles -> Some (id, smiles)
                 | _ -> None)
 
-        let dataYieldOfLoad =
-            float (compounds |> Array.sumBy (fun x-> if x.IsSome then 1 else 0)) / float compounds.Length
+        let dataCount =
+            compounds |> Array.sumBy (fun x-> if x.IsSome then 1 else 0)
 
-        printfn $"Loading {comp} succeeded with a yield rate of {dataYieldOfLoad}"
+        printfn $"Loading {dataCount} {comp} succeeded with a yield rate of { float dataCount / float compounds.Length}"
 
         Thread.Sleep(5000)
 
