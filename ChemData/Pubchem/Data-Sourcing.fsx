@@ -9,22 +9,34 @@ open FSharp.Stats
 open Newtonsoft.Json
 open JsonRepairUtils
 open System.Net
+open System.Threading
+open System
 open System.Diagnostics
+
+
+[<Literal>]
+let sdfPath = "../SDF"
+[<Literal>]
+let jsonPath = "../JSON-FULL"
 
 type Compound = JsonProvider<"../Input/Compound-labeled-all-sample.json">
 
 
 
-type CompoundList = JsonProvider<"../Input/PropertyList-sample.json">
+//type CompoundList = JsonProvider<"../Input/PropertyList-sample.json">
 
 let jsonRepair = JsonRepair()
 
 let preparePropertyListToCid (prop:string) =
-    jsonRepair.Repair(File.ReadAllText($"ChemData/Input/{prop}-full.json"))
-    |> Compound.Parse
-    |> Array.map (fun x -> x.Cid, x.Smiles)
+    let s = 
+        jsonRepair.Repair(File.ReadAllText($"../Input/{prop}.json"))
+        |> Compound.Parse
+        |> Array.map (fun x -> x.Cid, x.Smiles)
+    
+    printfn $"Prepared {s.Length} entries for {prop}"
+    s
     |> JsonConvert.SerializeObject 
-    |> fun data -> File.WriteAllText($"ChemData/Input/{prop}-CID-list.json", data)
+    |> fun data -> File.WriteAllText($"../Input/{prop}-CID-list.json", data)
 
 preparePropertyListToCid "Density"
 preparePropertyListToCid "BoilingPoint"
@@ -32,7 +44,7 @@ preparePropertyListToCid "MeltingPoint"
 preparePropertyListToCid "Solubility"
 preparePropertyListToCid "RefractiveIndex"
 preparePropertyListToCid "pH"
-preparePropertyListToCid "KovatRetention"
+preparePropertyListToCid "KovatsRetention"
 preparePropertyListToCid "LogP"
 preparePropertyListToCid "HeatOfVaporization"
 preparePropertyListToCid "HeatOfCombustion"
@@ -42,19 +54,19 @@ preparePropertyListToCid "CollisionCrossSection"
 preparePropertyListToCid "VaporPressure"
 preparePropertyListToCid "VaporDensity"
 preparePropertyListToCid "Viscosity"
-//let inpJson = File.ReadAllText("../Input/Compound-labeled-all-list.json")
 
 
+let inpJson = File.ReadAllText("../Input/Compound-labeled-all-list.json")
 
 //jsonRepair.ThrowExceptions <- true
 
 
 
-//try
-//    let repairedJson = jsonRepair.Repair(inpJson)
-//    File.WriteAllText("C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\Compound-labled-all-list-repaired.json", repairedJson)
-//with
-//    | :? JsonRepairError as e -> printfn "Error: %A" e
+try
+    let repairedJson = jsonRepair.Repair(inpJson)
+    File.WriteAllText("C:\\Users\\\Jonathan\\source\\repos\\ChemData\\ChemData\\Input\\Compound-labeled-all-list-repaired.json", repairedJson)
+with
+    | :? JsonRepairError as e -> printfn "Error: %A" e
 
 //let reps =
 //    File.ReadAllText("C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\Compound-labled-all-list-repaired.json")
@@ -67,12 +79,6 @@ let compoundIds = compounds |> Array.map _.Cid
 
 
 JsonConvert.SerializeObject(compoundIds) |> fun data -> File.WriteAllText("../Input/Compounds-CID-list.json", data)
-
-
-[<Literal>]
-let sdfPath = "../SDF"
-[<Literal>]
-let jsonPath = "../JSON-FULL"
 
 
 let deleteAllFiles (folderPath: string) =
@@ -90,50 +96,149 @@ deleteAllFiles jsonPath
 
 
 
-let client = new Http.HttpClient()
-let stopwatch = Stopwatch.StartNew()
 
-printfn "Start"
+let checkFileExistence (folderPath: string) (cid: int) =
+    let filePath = Path.Combine(folderPath, $"{cid}.json")
+    File.Exists(filePath)
 
-
-let getbyCID cid =
-    client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON/") |> Async.AwaitTask
-
-let getSDFbyCID cid =
-    client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/CID/{cid}/record/SDF?record_type=3d") |> Async.AwaitTask
-
-let writeData (cid:int) (data:string) =
-    File.WriteAllTextAsync($"C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\{cid}.json", data) |> Async.AwaitTask
-
-let writeStructure (cid:int) (data:string) =
-    File.WriteAllTextAsync($"C:\\Users\\jonat\\source\\repos\\ChemData\\ChemData\\SDF\\{cid}.sdf", data) |> Async.AwaitTask
-
-
-let pipeline cid =
-    async {
-        printfn "Getting %d" cid
-
-
-        try
-            let! record = getbyCID cid
-            let! sdf = getSDFbyCID cid
-            do! writeData cid record
-            do! writeStructure cid sdf
-            do! Async.Sleep 500
-            return true
-        with
-            | ex -> 
-                printfn $"Failed obtaining all data associated with CID: {cid}"
-                printfn $"Error: {ex.Message}"
-                return false
-    }
-
-let statusFeedback = 
-    compoundIds
-    |> Array.map pipeline
-    |> Async.Sequential
-    |> Async.RunSynchronously
     
-printfn "Finished in %ds" (stopwatch.ElapsedMilliseconds / 1000L)
-printfn $"Successes: {statusFeedback |> Array.filter (fun x -> x = true) |> Array.length}"
-printfn $"Failures: {statusFeedback |> Array.filter (fun x -> x = false) |> Array.length}"
+type CompoundCid = JsonProvider<"../Input/KovatsRetention-CID-list.json">
+type CompoundCidList = JsonProvider<"../Input/Compounds-CID-list.json">
+let missingCids = CompoundCidList.Load("../Input/Compounds-CID-list.json") |> Array.filter (fun x -> not (checkFileExistence jsonPath x)) |> Array.distinct
+let missingKovatsCIDs = CompoundCid.GetSamples() |> Array.map _.Item1 |> Array.filter (fun x -> not (checkFileExistence jsonPath x)) |> Array.distinct
+printfn $"{missingKovatsCIDs.Length}"
+printfn $"{missingCids.Length}"
+
+
+let fetchJsonForCid (cids:int array) =
+
+    let client = new Http.HttpClient()
+    let stopwatch = Stopwatch.StartNew()
+    
+    printfn "Start"
+    
+    
+    let getbyCID cid =
+        client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON/") |> Async.AwaitTask
+    
+    let getSDFbyCID cid =
+        client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/CID/{cid}/record/SDF?record_type=3d") |> Async.AwaitTask
+    
+    let writeData (cid:int) (data:string) =
+        File.WriteAllTextAsync($"C:\\Users\\Jonathan\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\{cid}.json", data) |> Async.AwaitTask
+    
+    let writeStructure (cid:int) (data:string) =
+        File.WriteAllTextAsync($"C:\\Users\\Jonathan\\source\\repos\\ChemData\\ChemData\\SDF\\{cid}.sdf", data) |> Async.AwaitTask
+    
+    
+    let pipeline cid =
+        async {
+            printfn "Getting %d" cid
+    
+    
+            try
+                let! record = getbyCID cid
+                //let! sdf = getSDFbyCID cid
+                do! writeData cid record
+                //do! writeStructure cid sdf
+                do! Async.Sleep 250
+                return true
+            with
+                | ex -> 
+                    printfn $"Failed obtaining any data associated with CID: {cid}"
+                    printfn $"Error: {ex.Message}"
+                    return false
+        }
+    
+    let statusFeedback = 
+        cids
+        |> Array.map pipeline
+        |> Async.Sequential
+        |> Async.RunSynchronously
+        
+    stopwatch.Stop()
+    printfn "Finished in %ds" (stopwatch.ElapsedMilliseconds / 1000L)
+    printfn $"Successes: {statusFeedback |> Array.filter (fun x -> x = true) |> Array.length}"
+    printfn $"Failures: {statusFeedback |> Array.filter (fun x -> x = false) |> Array.length}"
+
+
+
+type RateLimiter(rps: int) =
+    let sem = new SemaphoreSlim(0, rps)
+    let timer = new Timers.Timer(1000.0 / float rps)
+    
+    do
+        timer.AutoReset <- true
+        timer.Elapsed.Add(fun _ ->
+            try 
+                sem.Release() |> ignore
+            with :? SemaphoreFullException -> ()
+        )
+        timer.Start()
+    
+    member _.WaitAsync() = sem.WaitAsync() |> Async.AwaitTask
+    interface IDisposable with
+        member _.Dispose() =
+            timer.Dispose()
+            sem.Dispose()
+
+
+
+let fetchDataForCid (cids:int array) =
+    let client = new Http.HttpClient()
+    let stopwatch = Stopwatch.StartNew()
+
+
+    let getbyCID cid =
+        client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON/") 
+        |> Async.AwaitTask
+    
+    let writeData (cid:int) (data:string) =
+        File.WriteAllTextAsync($"C:\\Users\\Jonathan\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\{cid}.json", data) 
+        |> Async.AwaitTask
+    
+    let pipeline cid =
+        async {
+            try
+                printfn "Getting %d" cid
+                let! record = getbyCID cid
+                printfn "Writing %d" cid
+                do! writeData cid record
+                return true
+            with ex ->
+                printfn $"Failed CID {cid}: {ex.Message}"
+                return false
+        }
+    
+    /// Rate limiter using SemaphoreSlim and a timer that refills permits
+
+    let runWithRateLimit rps (jobs: Async<'T>[]) =
+        async {
+            use limiter = new RateLimiter(rps)
+            let! results =
+                jobs
+                |> Array.map (fun job ->
+                    async {
+                        do! limiter.WaitAsync()
+                        return! job
+                    })
+                |> Async.Parallel
+            return results
+        }
+    
+    let statusFeedback =
+        cids
+        |> Array.map pipeline
+        |> runWithRateLimit 4
+        |> Async.RunSynchronously
+
+    stopwatch.Stop()
+    printfn "Finished in %ds" (stopwatch.ElapsedMilliseconds / 1000L)
+    printfn $"Successes: {statusFeedback |> Array.filter (fun x -> x = true) |> Array.length}"
+    printfn $"Failures: {statusFeedback |> Array.filter (fun x -> x = false) |> Array.length}"
+
+    
+
+
+missingCids
+|> fetchDataForCid

@@ -1,5 +1,5 @@
 ﻿module Pipeline
-
+open System
 open DataSourcing
 open DensityParser
 open BoilingPointParser
@@ -76,7 +76,7 @@ let extractViscosity (record: PubChemJSON.Root) =
     |> extractionPipeline viscosityWrapper
 
 
-let extractKovatsRetention (record: PubChemJSON.Root) =
+let extractKovatsRetention (columnTypeToExtract:ColumnType) (record: PubChemJSON.Root) =
     getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"
     |> getPropertySection "Kovats Retention Index"
@@ -89,8 +89,11 @@ let extractKovatsRetention (record: PubChemJSON.Root) =
                 |> Array.map (fun x -> x.Name.Value, (x.Value.Number |> Array.map float))
                 |> Array.choose (fun (columnType, values) -> 
                     match identifyColumnType columnType with
-                    | Some cT ->  
-                        Some (KovatsRetention { ColumnType = cT; RI = values})
+                    | Some cT ->
+                        if cT = columnTypeToExtract then
+                            Some (KovatsRetention { ColumnType = cT; RI = values})
+                        else
+                            None
                     | None -> None
                         // failwith $"Couldnt match column type string {columnType} with data {values}"
                     )
@@ -144,9 +147,14 @@ let extractMeltingPoint (record: PubChemJSON.Root) =
     |> extractionPipeline meltingPointWrapper
 
 
-let pipeline (cid: int) (smiles:string) (parsingFunc: PubChemJSON.Root -> Parsing array option) =
+let pipeline (cid: int) (smiles: string) (parsingFunc: PubChemJSON.Root -> Parsing array option) =
     async {
         printfn "Getting %d" cid
-        let! record = PubChemJSON.AsyncLoad $"{projectRoot}/JSON-FULL/{cid}.json"
-        return cid, smiles, parsingFunc record
+        try
+            let! record = PubChemJSON.AsyncLoad $"{projectRoot}/JSON-FULL/{cid}.json"
+            return cid, smiles, parsingFunc record
+        with ex ->
+            let msg = sprintf "Failed obtaining all data associated with CID %d: %s" cid ex.Message
+            return raise (System.Exception(msg, ex))
     }
+

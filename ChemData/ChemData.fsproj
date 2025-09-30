@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Remove="Pubchem\DensityParserut\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="Pubchem/Data-Sourcing.fs" />
     <Compile Include="Pubchem/ParserTemplate.fs" />
     <Compile Include="Pubchem/DensityParser.fs" />
@@ -33,7 +37,6 @@
   <ItemGroup>
     <Folder Include="JSON-FULL/" />
     <Folder Include="Input/" />
-    <Folder Include="Pubchem\DensityParserut/" />
     <Folder Include="SDF/" />
   </ItemGroup>
 

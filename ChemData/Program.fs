@@ -12,20 +12,18 @@ open System.IO
 open FSharp.Data
 open System.Threading
 open System.Collections.Generic
+
+open System.Globalization
+
 type CidList = JsonProvider<"./Input/Density-CID-list.json">
 
 
-type RowData = {
-    Cid:int
-    Smiles:string
-    Labels:IDictionary<string,objnull> array
-}
-let convertToJSON (data: (int * string * Parsing array) array) =
+
+let convertToCsv (data: (int * string * Parsing array) array) =
     let handleUnit (converter: 'T -> float) (valueOpt: 'T option) =
         match valueOpt with
         | Some value -> converter value |> box
         | None -> box None
-
 
     let getOptCelsius =
         handleUnit (function
@@ -38,29 +36,41 @@ let convertToJSON (data: (int * string * Parsing array) array) =
         | Some x -> x |> box
         | None -> box None
  
-
-
-
-    let parseValue = function
+    let parsingToCsvString (cid:int) (smiles:string) (p:Parsing) =
+        match p with
         | Density d  ->
-            dict [ "Density", box d.Value; "Temp", box (getOptCelsius d.Temperature) ]
+            [|$"{cid},{smiles},{d.Value},{box (getOptCelsius d.Temperature)}"|]
         | BoilingPoint bp ->
-            dict [ "BoilingPoint", box (getOptCelsius (Some bp.Temperature)); "Pressure", box (getOptPressure bp.Pressure) ]
+            [|$"{cid},{smiles},{box (getOptCelsius (Some bp.Temperature))},{box (getOptPressure bp.Pressure)}"|]
         | MeltingPoint mp ->
-            dict [ "MeltingPoint", box (getOptCelsius (Some mp.Temperature)); "Pressure", box (getOptPressure mp.Pressure) ]
+            [|$"{cid},{smiles},{box (getOptCelsius (Some mp.Temperature))},{box (getOptPressure mp.Pressure)}"|]
         | RefractiveIndex ri ->
-            dict [ "RefractiveIndex", box ri.Value; "Temp", box (getOptCelsius ri.Temperature) ]
+            [|$"{cid},{smiles},{ri.Value},{box (getOptCelsius ri.Temperature)}"|]
         | Viscosity v ->
-            dict [ "Viscosity", box v.Value; "Temp", box (getOptCelsius v.Temperature) ]
+            [|$"{cid},{smiles},{v.Value},{box (getOptCelsius v.Temperature)}"|]
         | KovatsRetention kr ->
-            dict [ "KovatsRetention", box kr.RI; "ColumnType", box (kr.ColumnType.ToString()) ]
+            kr.RI
+            |> Array.map (fun rI -> $"{cid},{smiles},{rI}")
+        
+
+    let matchingHeaders =
+        function
+        | Density _  -> [| "CID,Smiles,Density,Temp" |]
+        | BoilingPoint _ -> [| "CID,Smiles,BoilingPoint,Pressure" |]
+        | MeltingPoint _ -> [| "CID,Smiles,MeltingPoint,Pressure" |]
+        | RefractiveIndex _ -> [| "CID,Smiles,RefractiveIndex,Temp" |]
+        | Viscosity _ -> [| "CID,Smiles,Viscosity,Temp" |]
+        | KovatsRetention _ -> [| "CID,Smiles,KovatsRetention" |]
 
 
-    let jsonObject =
+    let (_,_,headerParsings) = data[0]
+
+    let rows =
         data
-        |> Array.map (fun (cid, smiles, parsings) -> { Cid = cid; Smiles = smiles; Labels = parsings |> Array.map parseValue })
+        |> Array.collect (fun (cid:int, smiles:string, parsings:Parsing array) ->
+            parsings |> Array.collect (fun p -> parsingToCsvString cid smiles p))
 
-    JsonConvert.SerializeObject jsonObject
+    Array.append (matchingHeaders headerParsings[0]) rows
 
 let checkExistence (cid: int) =
     let file = Path.Combine($"{projectRoot}/JSON-FULL", $"{cid}.json")
@@ -171,14 +181,17 @@ let standardize (s: Parsing) =
 
 [<EntryPoint>]
 let main _ =
-
+    CultureInfo.DefaultThreadCurrentCulture <- CultureInfo.InvariantCulture
     let featurizer = [
-        "Density", extractDensity
-        "BoilingPoint", extractBoilingPoint
-        "MeltingPoint", extractMeltingPoint
-        "RefractiveIndex", extractRefractiveIndex
-        "Viscosity", extractViscosity
-        "KovatRetention", extractKovatsRetention
+        //"Density", extractDensity
+        //"BoilingPoint", extractBoilingPoint
+        //"MeltingPoint", extractMeltingPoint
+        //"RefractiveIndex", extractRefractiveIndex
+        //"Viscosity", extractViscosity
+
+        "KovatsRetention-StandardPolar", extractKovatsRetention StandardPolar
+        "KovatsRetention-StandardNonPolar", extractKovatsRetention StandardNonPolar
+        "KovatsRetention-SemiStandardNonPolar", extractKovatsRetention SemiStandardNonPolar
     ]
 
     let loadCompounds (comp:string) = 
@@ -222,8 +235,8 @@ let main _ =
             |> Array.map (fun (cid, smiles, data) -> cid, smiles, data |> Array.map (fun x -> standardize x))
         
         preparedData
-        |> convertToJSON
-        |> fun json -> File.WriteAllText($"{projectRoot}/Output/{name}-standardized.json", json)
+        |> convertToCsv
+        |> fun csvLines -> File.WriteAllLines($"{projectRoot}/Output/{name}-standardized.csv", csvLines)
 
         printfn $"{preparedData.Length}"
 

@@ -5,8 +5,8 @@ open System.IO
 open FSharp.Data
 open JsonRepairUtils
 
-type PubChemJSON = JsonProvider<"/home/jona/source/ChemData/ChemData/JSON-FULL/4.json">
-type CompoundList = JsonProvider<"/home/jona/source/ChemData/ChemData/Input/Compound-labeled-all-sample.json">
+type PubChemJSON = JsonProvider<"../ChemData/JSON-FULL/4.json">
+type CompoundList = JsonProvider<"../ChemData/Input/Compound-labeled-all-sample.json">
 
 
 
@@ -47,3 +47,4 @@ let getCompoundData (cid: int) =
             printfn $"File not found: {cid}"
             return None
     }
+
