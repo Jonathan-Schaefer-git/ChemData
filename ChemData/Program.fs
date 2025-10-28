@@ -183,12 +183,11 @@ let standardize (s: Parsing) =
 let main _ =
     CultureInfo.DefaultThreadCurrentCulture <- CultureInfo.InvariantCulture
     let featurizer = [
-        //"Density", extractDensity
-        //"BoilingPoint", extractBoilingPoint
-        //"MeltingPoint", extractMeltingPoint
-        //"RefractiveIndex", extractRefractiveIndex
-        //"Viscosity", extractViscosity
-
+        "Density", extractDensity
+        "BoilingPoint", extractBoilingPoint
+        "MeltingPoint", extractMeltingPoint
+        "RefractiveIndex", extractRefractiveIndex
+        "Viscosity", extractViscosity
         "KovatsRetention-StandardPolar", extractKovatsRetention StandardPolar
         "KovatsRetention-StandardNonPolar", extractKovatsRetention StandardNonPolar
         "KovatsRetention-SemiStandardNonPolar", extractKovatsRetention SemiStandardNonPolar

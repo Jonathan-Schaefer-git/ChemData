@@ -105,61 +105,11 @@ let checkFileExistence (folderPath: string) (cid: int) =
 type CompoundCid = JsonProvider<"../Input/KovatsRetention-CID-list.json">
 type CompoundCidList = JsonProvider<"../Input/Compounds-CID-list.json">
 let missingCids = CompoundCidList.Load("../Input/Compounds-CID-list.json") |> Array.filter (fun x -> not (checkFileExistence jsonPath x)) |> Array.distinct
-let missingKovatsCIDs = CompoundCid.GetSamples() |> Array.map _.Item1 |> Array.filter (fun x -> not (checkFileExistence jsonPath x)) |> Array.distinct
-printfn $"{missingKovatsCIDs.Length}"
+
+
+//let missingKovatsCIDs = CompoundCid.GetSamples() |> Array.map _.Item1 |> Array.filter (fun x -> not (checkFileExistence jsonPath x)) |> Array.distinct
+//printfn $"{missingKovatsCIDs.Length}"
 printfn $"{missingCids.Length}"
-
-
-let fetchJsonForCid (cids:int array) =
-
-    let client = new Http.HttpClient()
-    let stopwatch = Stopwatch.StartNew()
-    
-    printfn "Start"
-    
-    
-    let getbyCID cid =
-        client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON/") |> Async.AwaitTask
-    
-    let getSDFbyCID cid =
-        client.GetStringAsync($"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/CID/{cid}/record/SDF?record_type=3d") |> Async.AwaitTask
-    
-    let writeData (cid:int) (data:string) =
-        File.WriteAllTextAsync($"C:\\Users\\Jonathan\\source\\repos\\ChemData\\ChemData\\JSON-FULL\\{cid}.json", data) |> Async.AwaitTask
-    
-    let writeStructure (cid:int) (data:string) =
-        File.WriteAllTextAsync($"C:\\Users\\Jonathan\\source\\repos\\ChemData\\ChemData\\SDF\\{cid}.sdf", data) |> Async.AwaitTask
-    
-    
-    let pipeline cid =
-        async {
-            printfn "Getting %d" cid
-    
-    
-            try
-                let! record = getbyCID cid
-                //let! sdf = getSDFbyCID cid
-                do! writeData cid record
-                //do! writeStructure cid sdf
-                do! Async.Sleep 250
-                return true
-            with
-                | ex -> 
-                    printfn $"Failed obtaining any data associated with CID: {cid}"
-                    printfn $"Error: {ex.Message}"
-                    return false
-        }
-    
-    let statusFeedback = 
-        cids
-        |> Array.map pipeline
-        |> Async.Sequential
-        |> Async.RunSynchronously
-        
-    stopwatch.Stop()
-    printfn "Finished in %ds" (stopwatch.ElapsedMilliseconds / 1000L)
-    printfn $"Successes: {statusFeedback |> Array.filter (fun x -> x = true) |> Array.length}"
-    printfn $"Failures: {statusFeedback |> Array.filter (fun x -> x = false) |> Array.length}"
 
 
 
@@ -229,7 +179,7 @@ let fetchDataForCid (cids:int array) =
     let statusFeedback =
         cids
         |> Array.map pipeline
-        |> runWithRateLimit 4
+        |> runWithRateLimit 6
         |> Async.RunSynchronously
 
     stopwatch.Stop()
