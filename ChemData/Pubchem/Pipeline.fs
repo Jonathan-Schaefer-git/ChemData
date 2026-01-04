@@ -139,12 +139,12 @@ let extractMeltingPoint (record: PubChemJSON.Root) (filters: (Parsing -> bool) a
     |> extractionPipeline meltingPointWrapper
 
 
-let pipeline (cid: int) (smiles: string) (parsingFunc: PubChemJSON.Root -> (Parsing -> bool) array -> Parsing array option) =
+let pipeline (cid: int) (smiles: string) (parsingFunc: PubChemJSON.Root -> (Parsing -> bool) array -> Parsing array option) (filters: (Parsing -> bool) array) =
     async {
         printfn "Getting %d" cid
         try
             let! record = PubChemJSON.AsyncLoad $"{projectRoot}/JSON-FULL/{cid}.json"
-            return cid, smiles, parsingFunc record
+            return cid, smiles, filters |> (parsingFunc record)
         with ex ->
             let msg = sprintf "Failed obtaining all data associated with CID %d: %s" cid ex.Message
             return raise (System.Exception(msg, ex))

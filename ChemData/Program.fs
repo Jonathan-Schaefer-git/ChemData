@@ -248,7 +248,6 @@ let main _ =
             |> Array.map (fun (cid, smiles) -> pipeline cid smiles extractor)
             |> Async.Parallel
             |> Async.RunSynchronously
-            |> Array.map (fun (cid,smiles,unfilteredData) -> cid, smiles, filters |> unfilteredData)
             |> Array.map (fun (cid, smiles, data) ->
                 match data with
                 | Some someData when someData.Length > 0 -> Some(cid, smiles, someData)
