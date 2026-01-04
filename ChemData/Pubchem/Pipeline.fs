@@ -113,7 +113,7 @@ let extractRefractiveIndex (record: PubChemJSON.Root) (filters: (Parsing -> bool
 
 let extractDensity (record: PubChemJSON.Root) (filters: (Parsing -> bool) array) =
     let densityWrapper str =
-        parseDensity str |> Option.bind (fun d -> applyFilters filters (d))
+        parseDensity str |> Option.bind (fun d -> applyFilters filters (Density d))
 
     getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"
@@ -139,7 +139,7 @@ let extractMeltingPoint (record: PubChemJSON.Root) (filters: (Parsing -> bool) a
     |> extractionPipeline meltingPointWrapper
 
 
-let pipeline (cid: int) (smiles: string) (parsingFunc: PubChemJSON.Root -> Parsing array option) =
+let pipeline (cid: int) (smiles: string) (parsingFunc: PubChemJSON.Root -> (Parsing -> bool) array -> Parsing array option) =
     async {
         printfn "Getting %d" cid
         try

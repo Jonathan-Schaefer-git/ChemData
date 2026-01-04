@@ -178,12 +178,35 @@ let standardize (s: Parsing) =
     | KovatsRetention ri ->
         KovatsRetention ri
 
-let filterBounds lower upper (value:Parsing) =
-    value < lower || value > upper
+let filterBounds (lower:float) (upper:float) (p: Parsing) : bool =
+    match p with
+    | Density d -> d.Value >= lower && d.Value <= upper
+    | BoilingPoint bp -> 
+        standardTemp bp.Temperature |> function
+        | Celsius t -> t >= lower && t <= upper
+        | _ -> false
+    | MeltingPoint mp -> 
+        standardTemp mp.Temperature |> function
+        | Celsius t -> t >= lower && t <= upper
+        | _ -> false
+    | _ -> true
 
-let filterInfOrNaN (value:float) =
-    Double.IsInfinity(value) || Double.IsNaN(value)
-
+let filterInfOrNaN (p: Parsing) : bool =
+    match p with
+    | Density d -> not (Double.IsInfinity d.Value || Double.IsNaN d.Value)
+    | Viscosity v -> not (Double.IsInfinity v.Value || Double.IsNaN v.Value)
+    | RefractiveIndex ri -> not (Double.IsInfinity ri.Value || Double.IsNaN ri.Value)
+    | MeltingPoint mp -> 
+        standardTemp mp.Temperature |> function
+        | Celsius t -> not (Double.IsInfinity t || Double.IsNaN t)
+        | _ -> false
+    | BoilingPoint bp -> 
+        standardTemp bp.Temperature |> function
+        | Celsius t -> not (Double.IsInfinity t || Double.IsNaN t)
+        | _ -> false
+    | KovatsRetention kr ->
+        kr.RI |> Array.forall (fun rI -> not (Double.IsInfinity rI || Double.IsNaN rI))
+    | _ -> true
 
 
 [<EntryPoint>]
@@ -191,10 +214,10 @@ let main _ =
     CultureInfo.DefaultThreadCurrentCulture <- CultureInfo.InvariantCulture
     let featurizer = [
         "Density", extractDensity, [|filterBounds 0.0 20; filterInfOrNaN|]
-        "BoilingPoint", extractBoilingPoint, [||]
-        "MeltingPoint", extractMeltingPoint, [||]
-        "RefractiveIndex", extractRefractiveIndex, [||]
-        "Viscosity", extractViscosity, [||]
+        "BoilingPoint", extractBoilingPoint, [| filterInfOrNaN |]
+        "MeltingPoint", extractMeltingPoint, [| filterInfOrNaN|]
+        "RefractiveIndex", extractRefractiveIndex, [| filterInfOrNaN |]
+        "Viscosity", extractViscosity, [| filterInfOrNaN |]
         "KovatsRetention-StandardPolar", extractKovatsRetention StandardPolar, [||]
         "KovatsRetention-StandardNonPolar", extractKovatsRetention StandardNonPolar, [||]
         "KovatsRetention-SemiStandardNonPolar", extractKovatsRetention SemiStandardNonPolar, [||]
@@ -219,12 +242,13 @@ let main _ =
         compounds |> Array.choose (fun x -> if x.IsSome then x else None)
         
 
-    let processCompounds (compounds: (int * string) array) (extractor: PubChemJSON.Root -> Parsing array option) (name: string) =
+    let processCompounds (compounds: (int * string) array) (extractor: PubChemJSON.Root -> (Parsing -> bool) array -> Parsing array option) (name: string) (filters: (Parsing->bool) array) =
         let parsedData =
             compounds
             |> Array.map (fun (cid, smiles) -> pipeline cid smiles extractor)
             |> Async.Parallel
             |> Async.RunSynchronously
+            |> Array.map (fun (cid,smiles,unfilteredData) -> cid, smiles, filters |> unfilteredData)
             |> Array.map (fun (cid, smiles, data) ->
                 match data with
                 | Some someData when someData.Length > 0 -> Some(cid, smiles, someData)
@@ -251,7 +275,7 @@ let main _ =
     featurizer
     |> List.iter (fun (feature, extractor, filters) ->
         let compounds = loadCompounds feature
-        processCompounds compounds (extractor feature
+        processCompounds compounds extractor feature filters
     )
 
     // [
