@@ -237,7 +237,7 @@ let main _ =
 
         printfn $"Loading {dataCount} {comp} succeeded with a yield rate of { float dataCount / float compounds.Length}"
 
-        Thread.Sleep(5000)
+        //Thread.Sleep(5000)
 
         compounds |> Array.choose (fun x -> if x.IsSome then x else None)
         
@@ -245,7 +245,7 @@ let main _ =
     let processCompounds (compounds: (int * string) array) (extractor: PubChemJSON.Root -> (Parsing -> bool) array -> Parsing array option) (name: string) (filters: (Parsing->bool) array) =
         let parsedData =
             compounds
-            |> Array.map (fun (cid, smiles) -> pipeline cid smiles extractor)
+            |> Array.map (fun (cid, smiles) -> pipeline cid smiles extractor filters)
             |> Async.Parallel
             |> Async.RunSynchronously
             |> Array.map (fun (cid, smiles, data) ->
