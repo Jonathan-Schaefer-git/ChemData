@@ -62,13 +62,13 @@ let private extractionPipeline (parsingFunc: string -> Parsing option) (sec4: Pu
     | None -> None
 
 
+let applyFilters (filterFuncs: (Parsing -> bool) array) (data: Parsing) =
+    if filterFuncs |> Array.forall (fun f -> f data) then Some data else None
 
 
-let extractViscosity (record: PubChemJSON.Root) =
+let extractViscosity (record: PubChemJSON.Root) (filters:(Parsing -> bool) array) =
     let viscosityWrapper str =
-        match parseViscosity str with
-        | Some v -> Some(Viscosity v)
-        | None -> None
+        parseViscosity str |> Option.bind (fun v -> applyFilters filters (Viscosity v))
 
     getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"
@@ -76,7 +76,7 @@ let extractViscosity (record: PubChemJSON.Root) =
     |> extractionPipeline viscosityWrapper
 
 
-let extractKovatsRetention (columnTypeToExtract:ColumnType) (record: PubChemJSON.Root) =
+let extractKovatsRetention (columnTypeToExtract:ColumnType) (record: PubChemJSON.Root) (filters:(Parsing -> bool) array) =
     getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"
     |> getPropertySection "Kovats Retention Index"
@@ -101,11 +101,9 @@ let extractKovatsRetention (columnTypeToExtract:ColumnType) (record: PubChemJSON
         | None -> failwith "Nothing here"
 
 
-let extractRefractiveIndex (record: PubChemJSON.Root) =
+let extractRefractiveIndex (record: PubChemJSON.Root) (filters: (Parsing -> bool) array) =
     let refractiveIndexWrapper str =
-        match parseRefractiveIndex str with
-        | Some x -> Some(RefractiveIndex x)
-        | None -> None
+        parseRefractiveIndex str |> Option.bind (fun refI -> applyFilters filters (RefractiveIndex refI))
 
     getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"
@@ -113,33 +111,27 @@ let extractRefractiveIndex (record: PubChemJSON.Root) =
     |> extractionPipeline refractiveIndexWrapper
 
 
-let extractDensity (record: PubChemJSON.Root) =
+let extractDensity (record: PubChemJSON.Root) (filters: (Parsing -> bool) array) =
     let densityWrapper str =
-        match parseDensity str with
-        | Some x -> Some(Density x)
-        | None -> None
+        parseDensity str |> Option.bind (fun d -> applyFilters filters (d))
 
     getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"
     |> getPropertySection "Density"
     |> extractionPipeline densityWrapper
 
-let extractBoilingPoint (record: PubChemJSON.Root) =
+let extractBoilingPoint (record: PubChemJSON.Root) (filters: (Parsing -> bool) array) =
     let boilingPointWrapper str =
-        match parseBoilingPoint str with
-        | Some x -> Some(BoilingPoint x)
-        | None -> None
+        parseBoilingPoint str |> Option.bind (fun b -> applyFilters filters (BoilingPoint b))
 
     getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"
     |> getPropertySection "Boiling Point"
     |> extractionPipeline boilingPointWrapper
 
-let extractMeltingPoint (record: PubChemJSON.Root) =
+let extractMeltingPoint (record: PubChemJSON.Root) (filters: (Parsing -> bool) array) =
     let meltingPointWrapper str =
-        match parseMeltingPoint str with
-        | Some x -> Some(MeltingPoint x)
-        | None -> None
+        parseMeltingPoint str |> Option.bind (fun m -> applyFilters filters (MeltingPoint m))
 
     getSection "Chemical and Physical Properties" record.Record
     |> getSubSection "Experimental Properties"

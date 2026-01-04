@@ -12,7 +12,7 @@ open System.IO
 open FSharp.Data
 open System.Threading
 open System.Collections.Generic
-
+open System
 open System.Globalization
 
 type CidList = JsonProvider<"./Input/Density-CID-list.json">
@@ -178,19 +178,26 @@ let standardize (s: Parsing) =
     | KovatsRetention ri ->
         KovatsRetention ri
 
+let filterBounds lower upper (value:Parsing) =
+    value < lower || value > upper
+
+let filterInfOrNaN (value:float) =
+    Double.IsInfinity(value) || Double.IsNaN(value)
+
+
 
 [<EntryPoint>]
 let main _ =
     CultureInfo.DefaultThreadCurrentCulture <- CultureInfo.InvariantCulture
     let featurizer = [
-        "Density", extractDensity
-        "BoilingPoint", extractBoilingPoint
-        "MeltingPoint", extractMeltingPoint
-        "RefractiveIndex", extractRefractiveIndex
-        "Viscosity", extractViscosity
-        "KovatsRetention-StandardPolar", extractKovatsRetention StandardPolar
-        "KovatsRetention-StandardNonPolar", extractKovatsRetention StandardNonPolar
-        "KovatsRetention-SemiStandardNonPolar", extractKovatsRetention SemiStandardNonPolar
+        "Density", extractDensity, [|filterBounds 0.0 20; filterInfOrNaN|]
+        "BoilingPoint", extractBoilingPoint, [||]
+        "MeltingPoint", extractMeltingPoint, [||]
+        "RefractiveIndex", extractRefractiveIndex, [||]
+        "Viscosity", extractViscosity, [||]
+        "KovatsRetention-StandardPolar", extractKovatsRetention StandardPolar, [||]
+        "KovatsRetention-StandardNonPolar", extractKovatsRetention StandardNonPolar, [||]
+        "KovatsRetention-SemiStandardNonPolar", extractKovatsRetention SemiStandardNonPolar, [||]
     ]
 
     let loadCompounds (comp:string) = 
@@ -242,9 +249,9 @@ let main _ =
 
 
     featurizer
-    |> List.iter (fun (feature, extractor) ->
+    |> List.iter (fun (feature, extractor, filters) ->
         let compounds = loadCompounds feature
-        processCompounds compounds extractor feature
+        processCompounds compounds (extractor feature
     )
 
     // [
